@@ -245,3 +245,12 @@ def prepare_categorical_features(df, categorical_columns):
         all_categorical_features = np.array([]).reshape(len(df), 0)
     
     return all_categorical_features, encoders
+
+-------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+
+# Avant l'appel à cross_validate
+print(f"Shape de text_features: {text_features.shape if hasattr(text_features, 'shape') else 'pas un array'}")
+print(f"Shape de categorical_features: {categorical_features.shape}")
+print(f"Shape de cause_labels: {cause_labels.shape}")
+print(f"Nombre de classes uniques: {len(np.unique(cause_labels))}")
