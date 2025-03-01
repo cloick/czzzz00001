@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 import pickle
+"testestestes"
 
 # Configuration des paramètres
 MAX_LENGTH = 256

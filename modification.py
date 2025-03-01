@@ -168,4 +168,80 @@ def main():
         output_dir
     )
     
-    # ... reste du code ...
+    # ... reste du code ...++---------------
+    -----------------------------------------------------
+    ----------------------------------------------------
+    
+    # Au lieu d'utiliser OneHotEncoder de scikit-learn
+# encoder = OneHotEncoder(sparse=False, handle_unknown='ignore')
+# feature_encoded = encoder.fit_transform(df[[column]])
+
+# Utilisez to_categorical de TensorFlow
+from tensorflow.keras.utils import to_categorical
+
+# Pour les étiquettes (labels)
+def encode_labels(df, label_column):
+    """
+    Encode les étiquettes de classe en utilisant TensorFlow.
+    
+    Args:
+        df: DataFrame contenant les données
+        label_column: Nom de la colonne contenant les étiquettes
+    
+    Returns:
+        Étiquettes encodées et liste des classes originales
+    """
+    # Convertir d'abord en valeurs numériques
+    from sklearn.preprocessing import LabelEncoder
+    encoder = LabelEncoder()
+    numeric_labels = encoder.fit_transform(df[label_column])
+    
+    # Convertir en one-hot encoding
+    one_hot_labels = to_categorical(numeric_labels)
+    
+    return one_hot_labels, encoder.classes_
+
+------------------------------------------------------
+----------------------------------------------------------------
+
+def prepare_categorical_features(df, categorical_columns):
+    """
+    Encode les variables catégorielles en utilisant TensorFlow.
+    
+    Args:
+        df: DataFrame contenant les données
+        categorical_columns: Liste des colonnes catégorielles
+    
+    Returns:
+        Tableau numpy des caractéristiques catégorielles encodées et dictionnaire des encodeurs
+    """
+    from sklearn.preprocessing import LabelEncoder
+    encoders = {}
+    categorical_features = []
+    
+    for column in categorical_columns:
+        if column in df.columns:
+            # Création de l'encodeur
+            encoder = LabelEncoder()
+            
+            # Transformation des données en valeurs numériques
+            numeric_values = encoder.fit_transform(df[column])
+            
+            # Conversion en one-hot
+            one_hot_values = to_categorical(numeric_values)
+            
+            # Stockage de l'encodeur
+            encoders[column] = encoder
+            
+            # Ajout aux caractéristiques
+            categorical_features.append(one_hot_values)
+    
+    # Combinaison des caractéristiques catégorielles
+    if categorical_features:
+        # Reshape pour permettre la concaténation si les dimensions ne correspondent pas
+        reshaped_features = [f.reshape(len(df), -1) for f in categorical_features]
+        all_categorical_features = np.hstack(reshaped_features)
+    else:
+        all_categorical_features = np.array([]).reshape(len(df), 0)
+    
+    return all_categorical_features, encoders
