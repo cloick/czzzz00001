@@ -254,3 +254,257 @@ print(f"Shape de text_features: {text_features.shape if hasattr(text_features, '
 print(f"Shape de categorical_features: {categorical_features.shape}")
 print(f"Shape de cause_labels: {cause_labels.shape}")
 print(f"Nombre de classes uniques: {len(np.unique(cause_labels))}")
+
+-----------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+
+def train_evaluate_model(df, text_features, categorical_features, labels, n_classes, output_dir):
+    """
+    Entraîne et évalue le modèle en utilisant une simple division train/test.
+    
+    Args:
+        df: DataFrame contenant les données
+        text_features: Caractéristiques textuelles
+        categorical_features: Caractéristiques catégorielles
+        labels: Étiquettes encodées
+        n_classes: Nombre de classes
+        output_dir: Répertoire pour sauvegarder les modèles et résultats
+    
+    Returns:
+        Résultats de l'évaluation et le modèle entraîné
+    """
+    # Création du tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, local_files_only=True)
+    
+    # Division des données en ensembles d'entraînement et de validation
+    from sklearn.model_selection import train_test_split
+    train_idx, val_idx = train_test_split(
+        np.arange(len(df)),
+        test_size=0.2,
+        random_state=RANDOM_SEED,
+        stratify=labels  # Pour conserver la distribution des classes
+    )
+    
+    print(f"Taille de l'ensemble d'entraînement: {len(train_idx)}")
+    print(f"Taille de l'ensemble de validation: {len(val_idx)}")
+    
+    # Préparation des données d'entraînement et validation
+    train_texts = text_features.iloc[train_idx].values
+    val_texts = text_features.iloc[val_idx].values
+    
+    train_labels = labels[train_idx]
+    val_labels = labels[val_idx]
+    
+    # Tokenisation des textes
+    train_encodings = tokenizer(
+        train_texts.tolist(),
+        truncation=True,
+        padding='max_length',
+        max_length=MAX_LENGTH,
+        return_tensors='tf'
+    )
+    
+    val_encodings = tokenizer(
+        val_texts.tolist(),
+        truncation=True,
+        padding='max_length',
+        max_length=MAX_LENGTH,
+        return_tensors='tf'
+    )
+    
+    # Préparation des données catégorielles si présentes
+    if len(categorical_features) > 0:
+        train_categorical = categorical_features[train_idx]
+        val_categorical = categorical_features[val_idx]
+        
+        train_dataset = tf.data.Dataset.from_tensor_slices((
+            {
+                'input_ids': train_encodings['input_ids'],
+                'attention_mask': train_encodings['attention_mask'],
+                'categorical_features': train_categorical
+            },
+            train_labels
+        )).shuffle(len(train_idx)).batch(BATCH_SIZE)
+        
+        val_dataset = tf.data.Dataset.from_tensor_slices((
+            {
+                'input_ids': val_encodings['input_ids'],
+                'attention_mask': val_encodings['attention_mask'],
+                'categorical_features': val_categorical
+            },
+            val_labels
+        )).batch(BATCH_SIZE)
+    else:
+        train_dataset = tf.data.Dataset.from_tensor_slices((
+            {
+                'input_ids': train_encodings['input_ids'],
+                'attention_mask': train_encodings['attention_mask']
+            },
+            train_labels
+        )).shuffle(len(train_idx)).batch(BATCH_SIZE)
+        
+        val_dataset = tf.data.Dataset.from_tensor_slices((
+            {
+                'input_ids': val_encodings['input_ids'],
+                'attention_mask': val_encodings['attention_mask']
+            },
+            val_labels
+        )).batch(BATCH_SIZE)
+    
+    # Création du modèle
+    n_categorical = categorical_features.shape[1] if len(categorical_features) > 0 else 0
+    model = create_model(n_classes, n_categorical)
+    
+    # Callbacks pour l'entraînement
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True),
+        tf.keras.callbacks.ModelCheckpoint(
+            filepath=os.path.join(output_dir, 'best_model.h5'),
+            monitor='val_loss',
+            save_best_only=True
+        )
+    ]
+    
+    # Entraînement du modèle
+    history = model.fit(
+        train_dataset,
+        validation_data=val_dataset,
+        epochs=EPOCHS,
+        callbacks=callbacks
+    )
+    
+    # Évaluation du modèle
+    val_predictions = model.predict(val_dataset)
+    val_pred_classes = np.argmax(val_predictions, axis=1)
+    
+    # Calcul des métriques
+    from sklearn.metrics import classification_report, confusion_matrix
+    report = classification_report(val_labels, val_pred_classes, output_dict=True)
+    
+    # Affichage des résultats
+    print("\nRésultats de l'évaluation:")
+    print(classification_report(val_labels, val_pred_classes))
+    
+    # Matrice de confusion
+    cm = confusion_matrix(val_labels, val_pred_classes)
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title('Matrice de confusion')
+    plt.ylabel('Étiquette réelle')
+    plt.xlabel('Étiquette prédite')
+    plt.savefig(os.path.join(output_dir, 'confusion_matrix.png'))
+    
+    # Sauvegarde de l'historique d'entraînement
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['loss'], label='Train')
+    plt.plot(history.history['val_loss'], label='Validation')
+    plt.title('Perte')
+    plt.xlabel('Epoch')
+    plt.legend()
+    
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['accuracy'], label='Train')
+    plt.plot(history.history['val_accuracy'], label='Validation')
+    plt.title('Précision')
+    plt.xlabel('Epoch')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'training_history.png'))
+    
+    # Sauvegarde des résultats
+    with open(os.path.join(output_dir, 'evaluation_results.pkl'), 'wb') as f:
+        pickle.dump({
+            'report': report,
+            'confusion_matrix': cm,
+            'history': history.history
+        }, f)
+    
+    return report, model
+
+
+----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+
+
+def analyze_results(results, label_encoder, output_dir):
+    """
+    Analyse les résultats d'évaluation du modèle.
+    
+    Args:
+        results: Dictionnaire contenant les résultats (rapport de classification)
+        label_encoder: Encodeur des étiquettes
+        output_dir: Répertoire pour sauvegarder les résultats
+    """
+    # Extraction des métriques globales
+    accuracy = results['accuracy']
+    macro_f1 = results['macro avg']['f1-score']
+    weighted_f1 = results['weighted avg']['f1-score']
+    
+    print("\nRésultats de l'évaluation:")
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Macro F1-score: {macro_f1:.4f}")
+    print(f"Weighted F1-score: {weighted_f1:.4f}")
+    
+    # Analyse des performances par classe
+    class_performance = {}
+    classes = label_encoder.classes_
+    
+    for class_idx, class_name in enumerate(classes):
+        if str(class_idx) in results:
+            class_precision = results[str(class_idx)]['precision']
+            class_recall = results[str(class_idx)]['recall']
+            class_f1 = results[str(class_idx)]['f1-score']
+            
+            class_performance[class_name] = {
+                'precision': class_precision,
+                'recall': class_recall,
+                'f1-score': class_f1
+            }
+    
+    # Tri des classes par F1-score
+    sorted_classes = sorted(
+        class_performance.items(),
+        key=lambda x: x[1]['f1-score'],
+        reverse=True
+    )
+    
+    # Affichage des performances par classe
+    print("\nPerformances par classe (triées par F1-score):")
+    for class_name, metrics in sorted_classes:
+        print(f"{class_name}: Precision={metrics['precision']:.4f}, Recall={metrics['recall']:.4f}, F1={metrics['f1-score']:.4f}")
+    
+    # Identification des classes problématiques
+    problematic_classes = [
+        class_name for class_name, metrics in class_performance.items()
+        if metrics['f1-score'] < 0.7
+    ]
+    
+    print("\nClasses potentiellement problématiques (F1-score < 0.7):")
+    for class_name in problematic_classes:
+        print(f"- {class_name}: F1={class_performance[class_name]['f1-score']:.4f}")
+    
+    # Sauvegarde des résultats
+    with open(os.path.join(output_dir, 'class_performance.pkl'), 'wb') as f:
+        pickle.dump({
+            'class_performance': class_performance,
+            'accuracy': accuracy,
+            'macro_f1': macro_f1,
+            'weighted_f1': weighted_f1
+        }, f)
+    
+    # Visualisation des performances par classe
+    plt.figure(figsize=(12, 8))
+    classes = [c[0] for c in sorted_classes]
+    f1_scores = [c[1]['f1-score'] for c in sorted_classes]
+    
+    plt.barh(classes, f1_scores, color='skyblue')
+    plt.xlabel('F1-score')
+    plt.title('Performance par classe (F1-score)')
+    plt.axvline(x=0.7, color='red', linestyle='--', label='Seuil F1=0.7')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'class_performance.png'))
