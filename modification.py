@@ -508,3 +508,220 @@ def analyze_results(results, label_encoder, output_dir):
     plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'class_performance.png'))
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    -------------------------------------------------------
+    ------------------------------------------------------
+    ----------------------------------------------------------
+    ----------------------------------------------------------
+    
+    def train_subcause_models(df, text_features, categorical_features, cause_encoder, subcause_column, output_dir):
+    """
+    Entraîne un modèle spécifique pour les sous-causes de chaque cause.
+    
+    Args:
+        df: DataFrame contenant les données
+        text_features: Caractéristiques textuelles
+        categorical_features: Caractéristiques catégorielles
+        cause_encoder: Encodeur des causes
+        subcause_column: Nom de la colonne contenant les sous-causes
+        output_dir: Répertoire pour sauvegarder les modèles
+    
+    Returns:
+        Dictionnaire des modèles de sous-causes et leurs encodeurs
+    """
+    subcause_models = {}
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, local_files_only=True)
+    
+    # Pour chaque cause présente dans les données fiables
+    for cause_idx, cause_name in enumerate(cause_encoder.classes_):
+        print(f"\nTraitement des sous-causes pour la cause: {cause_name}")
+        
+        # Filtrer les données pour cette cause
+        cause_mask = df['cause_correcte'] == cause_name
+        cause_df = df[cause_mask]
+        
+        # Vérifier s'il y a suffisamment d'exemples
+        if len(cause_df) < 10:
+            print(f"  Pas assez d'exemples ({len(cause_df)}) pour cette cause, modèle ignoré.")
+            continue
+        
+        # Vérifier le nombre de sous-causes distinctes
+        subcauses = cause_df[subcause_column].unique()
+        if len(subcauses) < 2:
+            print(f"  Une seule sous-cause ({subcauses[0]}) pour cette cause, modèle non nécessaire.")
+            subcause_models[cause_name] = {
+                'model': None,
+                'encoder': None,
+                'single_subcause': subcauses[0]
+            }
+            continue
+        
+        print(f"  Nombre d'exemples: {len(cause_df)}, Nombre de sous-causes: {len(subcauses)}")
+        
+        # Encodage des sous-causes
+        subcause_encoder = LabelEncoder()
+        subcause_labels = subcause_encoder.fit_transform(cause_df[subcause_column])
+        n_subcauses = len(subcause_encoder.classes_)
+        
+        # Préparation des caractéristiques
+        cause_text_features = cause_df['texte_combine']
+        
+        if len(categorical_features) > 0:
+            cause_categorical_features = categorical_features[cause_mask]
+        else:
+            cause_categorical_features = np.array([]).reshape(len(cause_df), 0)
+        
+        # Création du répertoire spécifique
+        cause_output_dir = os.path.join(output_dir, 'subcauses', cause_name.replace('/', '_'))
+        os.makedirs(cause_output_dir, exist_ok=True)
+        
+        # Entraînement et évaluation du modèle pour cette cause
+        print(f"  Entraînement et évaluation du modèle pour les sous-causes de {cause_name}")
+        evaluation_results, subcause_model = train_evaluate_model(
+            cause_df,
+            cause_text_features,
+            cause_categorical_features,
+            subcause_labels,
+            n_subcauses,
+            cause_output_dir
+        )
+        
+        # Analyse des résultats
+        analyze_results(
+            evaluation_results,
+            subcause_encoder,
+            cause_output_dir
+        )
+        
+        # Ajout du mécanisme de détection de nouveauté spécifique à cette cause
+        optimal_threshold, novelty_params = add_novelty_detection(
+            subcause_model,
+            cause_df,
+            cause_text_features,
+            cause_categorical_features,
+            subcause_labels,
+            subcause_encoder,
+            cause_output_dir
+        )
+        
+        # Sauvegarde du modèle et de l'encodeur
+        subcause_models[cause_name] = {
+            'model': subcause_model,
+            'encoder': subcause_encoder,
+            'threshold': optimal_threshold,
+            'subcauses': subcause_encoder.classes_.tolist()
+        }
+        
+        # Sauvegarde des informations pour ce modèle de sous-cause
+        with open(os.path.join(cause_output_dir, 'subcause_model_info.pkl'), 'wb') as f:
+            pickle.dump({
+                'cause': cause_name,
+                'subcauses': subcause_encoder.classes_.tolist(),
+                'threshold': optimal_threshold,
+                'n_examples': len(cause_df)
+            }, f)
+    
+    # Sauvegarde du dictionnaire complet des modèles de sous-causes
+    with open(os.path.join(output_dir, 'subcause_models_info.pkl'), 'wb') as f:
+        pickle.dump({
+            cause: {
+                'subcauses': info['subcauses'] if 'subcauses' in info else [info.get('single_subcause')],
+                'threshold': info.get('threshold')
+            } for cause, info in subcause_models.items()
+        }, f)
+    
+    return subcause_models
+
+    -------------------------------------------------------
+    ------------------------------------------------------
+    ----------------------------------------------------------
+    ----------------------------------------------------------
+    
+    def main():
+    # Création du répertoire de sortie
+    output_dir = "metis_classification_results"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Chargement des données
+    df_fiable = load_data("metis_tickets.csv", "gdp_tickets.csv")
+    
+    # Préparation des caractéristiques
+    text_columns = ['description', 'notes_resolution']
+    categorical_columns = ['priorite', 'statut', 'type_incident', 'plateforme']
+    
+    # Définition des colonnes d'étiquettes
+    cause_column = 'cause_correcte'
+    subcause_column = 'sous_cause_correcte'
+    
+    text_features = prepare_text_features(df_fiable, text_columns)
+    categorical_features, cat_encoders = prepare_categorical_features(df_fiable, categorical_columns)
+    
+    # Encodage des étiquettes (pour les causes)
+    cause_labels, cause_encoder = encode_labels(df_fiable, cause_column)
+    n_causes = len(cause_encoder.classes_)
+    
+    # Entraînement et évaluation du modèle de causes
+    print("\nEntraînement et évaluation du modèle de causes...")
+    evaluation_results, final_cause_model = train_evaluate_model(
+        df_fiable, 
+        text_features, 
+        categorical_features, 
+        cause_labels, 
+        n_causes, 
+        os.path.join(output_dir, 'causes')
+    )
+    
+    # Analyse des résultats
+    print("\nAnalyse des résultats du modèle de causes...")
+    analyze_results(
+        evaluation_results, 
+        cause_encoder, 
+        os.path.join(output_dir, 'causes')
+    )
+    
+    # Ajout du mécanisme de détection de nouveauté
+    print("\nAjout du mécanisme de détection de nouveauté...")
+    optimal_threshold, novelty_params = add_novelty_detection(
+        final_cause_model,
+        df_fiable,
+        text_features,
+        categorical_features,
+        cause_labels,
+        cause_encoder,
+        os.path.join(output_dir, 'causes')
+    )
+    
+    # Entraînement des modèles de sous-causes
+    print("\nEntraînement des modèles de sous-causes...")
+    subcause_models = train_subcause_models(
+        df_fiable,
+        text_features,
+        categorical_features,
+        cause_encoder,
+        subcause_column,
+        output_dir
+    )
+    
+    # Sauvegarde des encodeurs et configurations
+    with open(os.path.join(output_dir, 'encoders_and_config.pkl'), 'wb') as f:
+        pickle.dump({
+            'cause_encoder': cause_encoder,
+            'categorical_encoders': cat_encoders,
+            'max_length': MAX_LENGTH,
+            'model_name': MODEL_NAME,
+            'categorical_columns': categorical_columns,
+            'text_columns': text_columns,
+            'novelty_threshold': optimal_threshold
+        }, f)
+    
+    print("\nEntraînement terminé et modèles sauvegardés avec succès dans", output_dir)
