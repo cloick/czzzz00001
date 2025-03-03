@@ -352,9 +352,13 @@ def clustering_deux_niveaux(embeddings, df_fiable, params_hdbscan):
     """
     print("Application de l'approche à deux niveaux...")
     
+    # Ajouter prediction_data=True pour permettre la prédiction future
+    params_with_pred = params_hdbscan.copy()
+    params_with_pred['prediction_data'] = True
+    
     # Niveau 1: Clustering pour les causes principales
     print("Niveau 1: Clustering pour causes principales...")
-    clusterer_niveau1 = hdbscan.HDBSCAN(**params_hdbscan)
+    clusterer_niveau1 = hdbscan.HDBSCAN(**params_with_pred)
     clusters_niveau1 = clusterer_niveau1.fit_predict(embeddings)
     
     # Analyser la composition des clusters de niveau 1
@@ -388,7 +392,7 @@ def clustering_deux_niveaux(embeddings, df_fiable, params_hdbscan):
             embeddings_cause = embeddings[indices_cause]
             
             # Appliquer HDBSCAN pour cette cause
-            clusterer_cause = hdbscan.HDBSCAN(**params_hdbscan)
+            clusterer_cause = hdbscan.HDBSCAN(**params_with_pred)
             clusters_cause = clusterer_cause.fit_predict(embeddings_cause)
             
             # Analyser la composition des clusters en termes de sous-causes
@@ -439,8 +443,53 @@ def predire_causes(modele, embeddings):
     clusterers_niveau2 = modele['clusterers']['niveau2']
     mapping_cluster_cause = modele['mapping_cluster_cause']
     
-    # Prédire les clusters de niveau 1
-    clusters_niveau1 = clusterer_niveau1.approximate_predict(embeddings)
+    # Utiliser la fonction approximate_predict du module hdbscan, et non la méthode de l'objet
+    try:
+        # Prédire les clusters de niveau 1
+        clusters_niveau1, strengths = hdbscan.prediction.approximate_predict(clusterer_niveau1, embeddings)
+    except Exception as e:
+        print(f"Erreur avec approximate_predict: {e}")
+        try:
+            # Si ça échoue, essayer predict (plus précis mais plus lent)
+            clusters_niveau1, strengths = hdbscan.prediction.predict(clusterer_niveau1, embeddings)
+        except Exception as e:
+            print(f"Erreur avec predict: {e}")
+            # Si les deux méthodes échouent, utiliser une approche par KNN
+            from sklearn.metrics import pairwise_distances
+            
+            # Obtenir les labels des clusters existants
+            labels = clusterer_niveau1.labels_
+            
+            # Pour chaque nouvelle donnée, trouver le cluster le plus proche
+            clusters_niveau1 = []
+            
+            # Accéder aux données d'entraînement originales
+            if hasattr(clusterer_niveau1, '_raw_data'):
+                original_data = clusterer_niveau1._raw_data
+            else:
+                raise ValueError("Impossible d'accéder aux données d'entraînement pour faire les prédictions.")
+            
+            for emb in embeddings:
+                # Calculer les distances à tous les points d'entraînement
+                distances = pairwise_distances([emb], original_data, metric='euclidean')[0]
+                
+                # Trouver les k plus proches voisins
+                k = 5  # Nombre de voisins à considérer
+                nearest_indices = np.argsort(distances)[:k]
+                nearest_labels = labels[nearest_indices]
+                
+                # Attribuer au cluster le plus fréquent parmi les voisins (excluant le bruit)
+                valid_labels = nearest_labels[nearest_labels >= 0]
+                if len(valid_labels) > 0:
+                    # Comptage des occurrences de chaque label
+                    unique_labels, counts = np.unique(valid_labels, return_counts=True)
+                    # Prendre le label le plus fréquent
+                    cluster_id = unique_labels[np.argmax(counts)]
+                else:
+                    # Si tous les voisins sont du bruit, assigner au bruit
+                    cluster_id = -1
+                
+                clusters_niveau1.append(cluster_id)
     
     # Convertir les clusters en causes
     causes_predites = []
@@ -456,12 +505,42 @@ def predire_causes(modele, embeddings):
         causes_predites.append(cause)
         
         # Essayer de prédire la sous-cause si possible
-        if cause in clusterers_niveau2:
+        if cause in clusterers_niveau2 and cause != "Non déterminée":
             clusterer_niveau2 = clusterers_niveau2[cause]
-            cluster_niveau2 = clusterer_niveau2.approximate_predict([embeddings[i]])[0]
             
-            # Pour simplifier, on ne fait pas de mapping des clusters de niveau 2 ici
-            # Dans un système complet, on aurait un mapping similaire pour les sous-causes
+            try:
+                # Même approche pour le niveau 2
+                cluster_niveau2, _ = hdbscan.prediction.approximate_predict(clusterer_niveau2, [embeddings[i]])
+                cluster_niveau2 = cluster_niveau2[0]  # Extraire le seul élément du tableau
+            except Exception as e:
+                try:
+                    cluster_niveau2, _ = hdbscan.prediction.predict(clusterer_niveau2, [embeddings[i]])
+                    cluster_niveau2 = cluster_niveau2[0]
+                except Exception as e:
+                    # Approche KNN pour le niveau 2
+                    if hasattr(clusterer_niveau2, '_raw_data'):
+                        original_data_niveau2 = clusterer_niveau2._raw_data
+                        labels_niveau2 = clusterer_niveau2.labels_
+                        
+                        # Calculer les distances
+                        from sklearn.metrics import pairwise_distances
+                        distances = pairwise_distances([embeddings[i]], original_data_niveau2, metric='euclidean')[0]
+                        
+                        # Trouver les k plus proches voisins
+                        k = min(5, len(original_data_niveau2))
+                        nearest_indices = np.argsort(distances)[:k]
+                        nearest_labels = labels_niveau2[nearest_indices]
+                        
+                        # Attribuer au cluster le plus fréquent
+                        valid_labels = nearest_labels[nearest_labels >= 0]
+                        if len(valid_labels) > 0:
+                            unique_labels, counts = np.unique(valid_labels, return_counts=True)
+                            cluster_niveau2 = unique_labels[np.argmax(counts)]
+                        else:
+                            cluster_niveau2 = -1
+                    else:
+                        cluster_niveau2 = -1
+            
             sous_cause = f"Sous-cause du cluster {cluster_niveau2}"
         else:
             sous_cause = "Non déterminée"
@@ -509,18 +588,34 @@ def visualiser_matrice_confusion(matrice_confusion):
     """
     # Convertir la matrice de confusion en DataFrame
     causes = sorted(matrice_confusion.keys())
-    df_confusion = pd.DataFrame(index=causes, columns=causes)
+    df_confusion = pd.DataFrame(index=causes, columns=causes, dtype=float)
+    
+    # Remplir avec des zéros d'abord pour éviter les NaN
+    df_confusion.fillna(0.0, inplace=True)
     
     for cause_reelle in causes:
         for cause_predite in causes:
-            df_confusion.loc[cause_reelle, cause_predite] = matrice_confusion[cause_reelle].get(cause_predite, 0)
+            df_confusion.loc[cause_reelle, cause_predite] = float(matrice_confusion[cause_reelle].get(cause_predite, 0))
     
-    # Normaliser par ligne
-    df_confusion_norm = df_confusion.div(df_confusion.sum(axis=1), axis=0)
+    # Créer une copie pour les annotations qui seront en format entier
+    df_annot = df_confusion.copy().astype(int)
+    
+    # Normaliser par ligne en évitant les divisions par zéro
+    df_confusion_norm = df_confusion.copy()
+    row_sums = df_confusion.sum(axis=1)
+    
+    for idx in df_confusion_norm.index:
+        if row_sums[idx] > 0:
+            df_confusion_norm.loc[idx, :] = df_confusion_norm.loc[idx, :] / row_sums[idx]
+    
+    # S'assurer que toutes les valeurs sont numériques
+    df_confusion_norm = df_confusion_norm.astype(float)
     
     # Visualiser
     plt.figure(figsize=(12, 10))
-    sns.heatmap(df_confusion_norm, annot=df_confusion, fmt='d', cmap='YlGnBu')
+    
+    # Utiliser df_annot pour les annotations (format entier) et df_confusion_norm pour les couleurs
+    sns.heatmap(df_confusion_norm, annot=df_annot, fmt='d', cmap='YlGnBu')
     plt.title('Matrice de confusion')
     plt.xlabel('Cause prédite')
     plt.ylabel('Cause réelle')
@@ -594,7 +689,11 @@ def executer_phase2(resultats_phase1=None, optimiser=True):
     
     # 3. Appliquer HDBSCAN avec les meilleurs paramètres
     print("\nApplication de HDBSCAN avec les paramètres optimaux...")
-    clusterer = hdbscan.HDBSCAN(**meilleurs_params)
+    
+    # Ajouter prediction_data=True pour permettre la prédiction future
+    params_with_pred = meilleurs_params.copy()
+    params_with_pred['prediction_data'] = True
+    clusterer = hdbscan.HDBSCAN(**params_with_pred)
     clusters = clusterer.fit_predict(embeddings_enrichis)
     
     # Métriques de qualité
