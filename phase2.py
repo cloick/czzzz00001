@@ -767,7 +767,6 @@ def executer_phase2(resultats_phase1=None, optimiser=True):
         'embeddings_2d': embeddings_2d,
         'composition': composition
     }
-
 # =========== EXÉCUTION DU SCRIPT ===========
 
 if __name__ == "__main__":
