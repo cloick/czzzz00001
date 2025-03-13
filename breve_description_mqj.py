@@ -63,13 +63,16 @@ def evaluer_clusters(X, labels):
     # Nombre de clusters (excluant le bruit -1)
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
     
+    # Calculer le ratio de bruit (points non attribués à un cluster)
+    noise_ratio = sum(1 for l in labels if l == -1) / len(labels)
+    
     # Si un seul cluster ou aucun, les métriques ne sont pas applicables
     if n_clusters <= 1:
         return {
             "n_clusters": n_clusters,
-            "noise_ratio": sum(1 for l in labels if l == -1) / len(labels),
-            "silhouette": "N/A (clusters insuffisants)",
-            "calinski_harabasz": "N/A (clusters insuffisants)"
+            "noise_ratio": noise_ratio,
+            "silhouette": 0,  # Valeur numérique au lieu de string
+            "calinski_harabasz": 0  # Valeur numérique au lieu de string
         }
     
     # Calculer le score de silhouette (uniquement sur les points non bruités)
@@ -78,18 +81,15 @@ def evaluer_clusters(X, labels):
         try:
             silhouette = silhouette_score(X[non_noise_mask], labels[non_noise_mask])
         except:
-            silhouette = "Erreur de calcul"
+            silhouette = 0  # Valeur numérique au lieu de string
     else:
-        silhouette = "N/A (points insuffisants)"
+        silhouette = 0  # Valeur numérique au lieu de string
     
     # Calculer le score de Calinski-Harabasz
     try:
         calinski_harabasz = calinski_harabasz_score(X, labels)
     except:
-        calinski_harabasz = "Erreur de calcul"
-    
-    # Calculer le ratio de bruit (points non attribués à un cluster)
-    noise_ratio = sum(1 for l in labels if l == -1) / len(labels)
+        calinski_harabasz = 0  # Valeur numérique au lieu de string
     
     return {
         "n_clusters": n_clusters,
@@ -148,30 +148,26 @@ def optimiser_hyperparams_hdbscan(X, param_grid=None):
     resultats = [r for r in resultats_temp if r is not None]
     
     # Trier par score de silhouette (si disponible)
-    resultats_valides = [r for r in resultats if isinstance(r['silhouette'], (int, float))]
+    resultats_valides = [r for r in resultats if r is not None]
     
     # Gérer le cas où aucun résultat n'est valide
-    if not resultats and not resultats_valides:
+    if not resultats_valides:
         print("ATTENTION: Aucune combinaison de paramètres n'a donné de résultat valide.")
         print("Utilisation des paramètres par défaut.")
         return {
-            'min_cluster_size': 10,
-            'min_samples': 5,
+            'min_cluster_size': 5,
+            'min_samples': 2,
             'cluster_selection_epsilon': 0.2,
             'cluster_selection_method': 'eom',
             'n_clusters': 10,
             'noise_ratio': 0.3,
-            'silhouette': 'N/A',
-            'calinski_harabasz': 'N/A'
+            'silhouette': 0,
+            'calinski_harabasz': 0
         }, []
         
-    if resultats_valides:
-        resultats_valides.sort(key=lambda x: (-x['silhouette'], x['n_clusters']))
-        meilleurs_params = resultats_valides[0]
-    else:
-        # Trier par nombre de clusters si silhouette n'est pas disponible
-        resultats.sort(key=lambda x: abs(x['n_clusters'] - 20))  # ~20 clusters est souvent un bon compromis
-        meilleurs_params = resultats[0]
+    # Trier par nombre de clusters pour avoir un nombre raisonnable
+    resultats_valides.sort(key=lambda x: abs(x['n_clusters'] - 20))  # ~20 clusters est un bon compromis
+    meilleurs_params = resultats_valides[0]
     
     return meilleurs_params, resultats
 
@@ -226,17 +222,23 @@ def cluster_et_visualiser(df, colonne_description='breve description', max_clust
     
     # Visualiser les résultats de la recherche d'hyperparamètres
     df_resultats = pd.DataFrame(tous_resultats)
-    df_resultats_viz = df_resultats[df_resultats['n_clusters'] <= 50].copy()
     
-    # Graphique pour le nombre de clusters vs silhouette score
-    if isinstance(df_resultats_viz['silhouette'].iloc[0], (int, float)):
-        plt.figure(figsize=(12, 6))
-        sns.scatterplot(data=df_resultats_viz, x='n_clusters', y='silhouette')
-        plt.title('Score de Silhouette vs Nombre de Clusters')
-        plt.xlabel('Nombre de Clusters')
-        plt.ylabel('Score de Silhouette')
-        plt.savefig('hyperparams_silhouette.png')
-        plt.close()
+    # Vérifier si df_resultats est vide ou n'a pas la colonne 'n_clusters'
+    if df_resultats.empty or 'n_clusters' not in df_resultats.columns:
+        print("ATTENTION: Aucun résultat valide pour visualiser les hyperparamètres")
+    else:
+        # Graphique pour le nombre de clusters vs silhouette score
+        df_resultats_viz = df_resultats[df_resultats['n_clusters'] <= 50].copy()
+        
+        if not df_resultats_viz.empty and 'silhouette' in df_resultats_viz.columns:
+            if isinstance(df_resultats_viz['silhouette'].iloc[0], (int, float)):
+                plt.figure(figsize=(12, 6))
+                sns.scatterplot(data=df_resultats_viz, x='n_clusters', y='silhouette')
+                plt.title('Score de Silhouette vs Nombre de Clusters')
+                plt.xlabel('Nombre de Clusters')
+                plt.ylabel('Score de Silhouette')
+                plt.savefig('hyperparams_silhouette.png')
+                plt.close()
     
     # 3. Réaliser le clustering final avec les meilleurs paramètres
     print("Exécution du clustering final avec les paramètres optimaux...")
