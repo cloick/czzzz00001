@@ -252,7 +252,7 @@ def cluster_et_visualiser(df, colonne_description='breve description', max_clust
             values='n_clusters', 
             aggfunc='mean'
         )
-        sns.heatmap(pivot_clusters, annot=True, cmap='YlGnBu', fmt='d')
+        sns.heatmap(pivot_clusters, annot=True, cmap='YlGnBu', fmt='.1f')  # Changé de 'd' à '.1f'
         plt.title('Nombre de clusters par combinaison de paramètres')
         plt.savefig('dbscan_clusters_heatmap.png')
         plt.close()
@@ -520,4 +520,4 @@ def analyser_incidents(df, colonne_description='breve description'):
     return df_enrichi
 
 # Exemple d'utilisation:
-# df_enrichi = analyser_incidents(df)
+# df_enrichi = analyser_incidents(df2.sample(10000), colonne_description='Brève description')
