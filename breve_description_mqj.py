@@ -123,10 +123,20 @@ def optimiser_hyperparams_hdbscan(X, param_grid=None):
             labels = clustering.fit_predict(X)
             
             n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-            if n_clusters <= 1 or n_clusters > 50:  # Trop peu ou trop de clusters
-                return None
             
+            # Accepter même un seul cluster pour éviter de n'avoir aucun résultat
+            if n_clusters == 0:
+                print(f"Paramètres {params}: 0 cluster détecté (tous les points classés comme bruit)")
+                return {
+                    **params,
+                    'n_clusters': 0,
+                    'noise_ratio': 1.0,
+                    'silhouette': 0,
+                    'calinski_harabasz': 0
+                }
+                
             metrics = evaluer_clusters(X, labels)
+            print(f"Paramètres {params}: {n_clusters} clusters, silhouette={metrics['silhouette']}")
             return {**params, **metrics}
         except Exception as e:
             print(f"Erreur avec params {params}: {str(e)}")
@@ -139,6 +149,22 @@ def optimiser_hyperparams_hdbscan(X, param_grid=None):
     
     # Trier par score de silhouette (si disponible)
     resultats_valides = [r for r in resultats if isinstance(r['silhouette'], (int, float))]
+    
+    # Gérer le cas où aucun résultat n'est valide
+    if not resultats and not resultats_valides:
+        print("ATTENTION: Aucune combinaison de paramètres n'a donné de résultat valide.")
+        print("Utilisation des paramètres par défaut.")
+        return {
+            'min_cluster_size': 10,
+            'min_samples': 5,
+            'cluster_selection_epsilon': 0.2,
+            'cluster_selection_method': 'eom',
+            'n_clusters': 10,
+            'noise_ratio': 0.3,
+            'silhouette': 'N/A',
+            'calinski_harabasz': 'N/A'
+        }, []
+        
     if resultats_valides:
         resultats_valides.sort(key=lambda x: (-x['silhouette'], x['n_clusters']))
         meilleurs_params = resultats_valides[0]
@@ -187,9 +213,9 @@ def cluster_et_visualiser(df, colonne_description='breve description', max_clust
     # 2. Optimiser les hyperparamètres HDBSCAN
     print("Optimisation des hyperparamètres de HDBSCAN...")
     param_grid = {
-        'min_cluster_size': [5, 10, 15, 20, 30, 50],
-        'min_samples': [5, 10, 20],
-        'cluster_selection_epsilon': [0.0, 0.2, 0.5],
+        'min_cluster_size': [3, 5, 10, 15, 20, 30, 50],
+        'min_samples': [1, 3, 5, 10, 20],
+        'cluster_selection_epsilon': [0.0, 0.1, 0.2, 0.5, 1.0],
         'cluster_selection_method': ['eom', 'leaf']
     }
     meilleurs_params, tous_resultats = optimiser_hyperparams_hdbscan(X.toarray(), param_grid)
@@ -389,23 +415,25 @@ def cluster_et_visualiser(df, colonne_description='breve description', max_clust
     return fig_2d_all, fig_3d, tous_motifs_clusters, df_enrichi, meilleurs_params
 
 # Usage de la fonction
-def analyser_incidents(df):
+def analyser_incidents(df, colonne_description='breve description'):
     """
     Fonction principale pour analyser les incidents dans un dataframe
     
     Args:
-        df: DataFrame pandas contenant une colonne 'breve description'
+        df: DataFrame pandas contenant les descriptions d'incidents
+        colonne_description: Nom de la colonne contenant les descriptions (défaut: 'breve description')
     
     Returns:
         DataFrame enrichi avec les clusters et coordonnées UMAP
     """
     # Vérifier que la colonne existe
-    if 'breve description' not in df.columns:
-        raise ValueError("Le dataframe doit contenir une colonne 'breve description'")
+    if colonne_description not in df.columns:
+        raise ValueError(f"Le dataframe doit contenir une colonne '{colonne_description}'")
         
     # Exécuter le clustering et la visualisation
     fig_2d, fig_3d, motifs_clusters, df_enrichi, params = cluster_et_visualiser(
-        df, 
+        df,
+        colonne_description=colonne_description,
         max_clusters=30,  # Analyser en détail les 30 plus grands clusters 
         n_exemples=10     # Inclure 10 exemples par cluster
     )
