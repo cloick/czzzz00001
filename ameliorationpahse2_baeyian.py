@@ -849,7 +849,7 @@ def executer_clustering_phase1_style(limit_samples=None, optimiser_clusters=True
         embeddings_enrichis,
         df_prep, 
         cible_clusters=cible_clusters,
-        optimiser=optimiser_clusters,
+        optimiser=optimiser_clusters,   
         params_hdbscan=params_hdbscan,
         optimisation_bayesienne=optimisation_bayesienne
     )

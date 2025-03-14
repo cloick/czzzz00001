@@ -1986,6 +1986,7 @@ if __name__ == "__main__":
 
 OPTIMISATION LLM + VARIABLES CATEGORIELLES 
 
+NECESSITE 
 import numpy as np
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import make_scorer, accuracy_score, recall_score, f1_score
