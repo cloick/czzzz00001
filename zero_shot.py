@@ -695,6 +695,60 @@ def evaluer_modele_enrichi(classifier, df_test):
     
     return resultats
     
+def afficher_resultats(resultats):
+    """
+    Affiche les résultats de l'évaluation.
+    
+    Args:
+        resultats (dict): Résultats de l'évaluation
+    """
+    print("\n===== RÉSULTATS DE L'ÉVALUATION =====")
+    print(f"Précision - Causes: {resultats['cause_accuracy']:.2%}")
+    print(f"Précision - Sous-causes: {resultats['subcause_accuracy']:.2%}")
+    print(f"Précision globale (cause ET sous-cause): {resultats['overall_accuracy']:.2%}")
+    print(f"Précision pondérée (causes): {resultats['cause_precision']:.2%}")
+    print(f"Rappel pondéré (causes): {resultats['cause_recall']:.2%}")
+    print(f"F1-score pondéré (causes): {resultats['cause_f1']:.2%}")
+    
+    # Afficher la matrice de confusion
+    plt.figure(figsize=(12, 10))
+    cm = confusion_matrix(resultats['y_true_causes'], resultats['y_pred_causes'])
+    
+    # Obtenir les étiquettes uniques
+    classes = sorted(list(set(resultats['y_true_causes'] + resultats['y_pred_causes'])))
+    
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes)
+    plt.title('Matrice de confusion - Causes')
+    plt.xlabel('Prédiction')
+    plt.ylabel('Vérité terrain')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig('confusion_matrix_causes.png')
+    plt.show()
+    
+    # Afficher les erreurs les plus fréquentes
+    df_pred = resultats['df_predictions']
+    erreurs = df_pred[~df_pred['cause_correct']]
+    
+    if len(erreurs) > 0:
+        print("\n===== ERREURS FRÉQUENTES - CAUSES =====")
+        erreurs_frequentes = pd.crosstab(
+            erreurs['true_cause'], 
+            erreurs['pred_cause'], 
+            rownames=['Vérité'], 
+            colnames=['Prédiction']
+        )
+        print(erreurs_frequentes)
+    
+    # Afficher un tableau des 5 prédictions avec le score le plus faible
+    print("\n===== PRÉDICTIONS LES MOINS CONFIANTES =====")
+    moins_confiantes = df_pred.sort_values('cause_score').head(5)
+    for i, row in moins_confiantes.iterrows():
+        print(f"Ticket: {row['ticket']}")
+        print(f"Cause réelle: {row['true_cause']}, Prédiction: {row['pred_cause']} (score: {row['cause_score']:.2%})")
+        print(f"Sous-cause réelle: {row['true_subcause']}, Prédiction: {row['pred_subcause']} (score: {row['subcause_score']:.2%})")
+        print("-" * 80)
+
 
 Fonction principale pour exécuter le test avec descriptions enrichies
 
