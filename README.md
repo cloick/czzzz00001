@@ -39,4 +39,34 @@ Modifications apportées :
 3. Pour les versions Windows, j'ai simplifié en cherchant à la fois "WINDOWS" et l'année
 4. Plutôt que de mettre "AUTRE", le dernier cas renvoie simplement la valeur d'origine en majuscules si aucune correspondance n'est trouvée
 
-Si vous remarquez d'autres cas particuliers à ajouter, n'hésitez pas à me le faire savoir.
+Si vous remarquez d'autres cas particuliers à ajouter, n'hésitez pas à me le faire savoi
+
+Je vois maintenant que vous souhaitez créer une autre colonne "groupe_os" à partir de la colonne "modele_os" que nous avons définie précédemment. D'après l'image que vous venez de partager, les valeurs de "groupe_os" semblent être des regroupements plus génériques des systèmes d'exploitation.
+
+Voici la formule DAX pour créer cette colonne calculée "groupe_os" :
+
+```
+groupe_os = 
+SWITCH(
+    TRUE(),
+    CONTAINSSTRING([modele_os], "CANONICAL-UBUNTU"), "CANONICAL-UBUNTU LINUX",
+    CONTAINSSTRING([modele_os], "CENTOS"), "CENTOS-LINUX",
+    CONTAINSSTRING([modele_os], "DEBIAN"), "DEBIAN-LINUX",
+    CONTAINSSTRING([modele_os], "IBM-AIX"), "IBM-AIX",
+    CONTAINSSTRING([modele_os], "MICROSOFT-WINDOWS"), "MICROSOFT-WINDOWS SERVER",
+    CONTAINSSTRING([modele_os], "ND-LINUX"), "ND-LINUX",
+    CONTAINSSTRING([modele_os], "REDHAT"), "REDHAT-ENTREPRISE LINUX",
+    CONTAINSSTRING([modele_os], "SUSE"), "SUSE-LINUX ENTREPRISE",
+    CONTAINSSTRING([modele_os], "VMWARE-ESXI"), "VMWARE-ESXI",
+    CONTAINSSTRING([modele_os], "VMWARE-PHOTON"), "VMWARE-PHOTON",
+    [modele_os]  // Si aucune correspondance, on renvoie modele_os sans modification
+)
+```
+
+Cette formule :
+1. Utilise la colonne calculée "modele_os" que nous avons créée précédemment
+2. Extrait la partie générique du système d'exploitation, sans la version spécifique
+3. Retourne la valeur correspondante selon votre liste de "groupe_os"
+4. Si aucune correspondance n'est trouvée, elle retourne simplement la valeur de "modele_os"
+
+Cette approche permet de regrouper toutes les versions d'un même système d'exploitation (par exemple, toutes les versions de Windows Server ou de Red Hat) sous une même catégorie générique.
