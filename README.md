@@ -98,3 +98,57 @@ Cette formule assure que:
 4. La valeur minimale est retournée, qui sera 0 si au moins une Appops de la liste de référence n'existe pas dans la table principale
 
 Cette formule devrait maintenant maintenir une valeur constante, quel que soit le filtre segment que vous appliquez.
+
+
+
+99999999
+
+
+Vous avez raison, revenons aux bases et posons clairement le problème.
+
+Voici ce que je comprends :
+1. Vous avez deux tables : une avec une liste d'Appops (appelons-la "Appops_") et une table principale (apparemment "windows_new")
+2. Vous voulez calculer le minimum et le maximum d'occurrences des Appops qui figurent dans la table "Appops_"
+3. Pour le minimum, vous voulez inclure les Appops qui n'apparaissent pas (valeur 0)
+4. Pour le maximum, vous voulez uniquement considérer les Appops qui apparaissent au moins une fois
+5. Ces mesures doivent être insensibles aux filtres appliqués
+
+Essayons une approche plus simple et directe :
+
+Pour le MINIMUM :
+```
+MinValue = 
+VAR AllAppsWithCounts = 
+    SUMMARIZE(
+        REMOVEFILTERS(Appops_),
+        Appops_[Appops],
+        "Count", CALCULATE(
+            COUNTROWS(windows_new),
+            REMOVEFILTERS(windows_new),
+            windows_new[Appops] = EARLIER(Appops_[Appops])
+        )
+    )
+RETURN
+    MINX(AllAppsWithCounts, [Count])
+```
+
+Pour le MAXIMUM (uniquement pour les Appops qui apparaissent) :
+```
+MaxValue = 
+VAR AllAppsWithCounts = 
+    SUMMARIZE(
+        REMOVEFILTERS(Appops_),
+        Appops_[Appops],
+        "Count", CALCULATE(
+            COUNTROWS(windows_new),
+            REMOVEFILTERS(windows_new),
+            windows_new[Appops] = EARLIER(Appops_[Appops])
+        )
+    )
+VAR AppsWithNonZeroCounts = 
+    FILTER(AllAppsWithCounts, [Count] > 0)
+RETURN
+    MAXX(AppsWithNonZeroCounts, [Count])
+```
+
+Ces formules sont plus simples et devraient fonctionner avec moins de risques d'erreurs de syntaxe. Assurez-vous juste de remplacer "Appops_" et "windows_new" par les noms réels de vos tables.
