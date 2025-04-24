@@ -1,43 +1,33 @@
-Je comprends mieux le problème maintenant. Puisque status_mouvement est déjà une mesure, nous devons ajuster notre approche.
-
-Voici une solution alternative qui devrait fonctionner dans votre cas :
-
-1. Au lieu de créer une mesure qui dépend de status_mouvement, créez deux mesures distinctes :
+Pour inclure des conditions OU dans votre fonction IF en DAX, vous pouvez utiliser la fonction logique OR. Voici comment vous pouvez modifier votre formule:
 
 ```
-Nombre de constructions = 
-CALCULATE(
-    COUNTROWS('VotreTable'),
-    'VotreTable'[created] = "created"
-)
-```
-
-```
-Nombre de décommissionnements = 
--1 * CALCULATE(
-    COUNTROWS('VotreTable'),
-    'VotreTable'[deleted] = "deleted"
-)
-```
-
-2. Créez une table auxiliaire simple dans Power Query. Cette table aura une seule colonne "Type" avec deux valeurs : "Construction" et "Décommissionnement"
-
-3. Créez une mesure qui utilise ces deux mesures en fonction du type sélectionné :
-
-```
-Mouvement = 
+Environnement = 
 IF(
-    SELECTEDVALUE(TableAuxiliaire[Type]) = "Construction",
-    [Nombre de constructions],
-    [Nombre de décommissionnements]
+    OR(
+        [VotreColonne] = "NON-PROD",
+        [VotreColonne] = "UAT",
+        [VotreColonne] = "DEV"
+        // Ajoutez d'autres conditions si nécessaire
+    ),
+    "HORS PROD",
+    "PROD"
 )
 ```
 
-4. Dans le graphique en cascade :
-   - Mettez modele_os dans le champ Catégorie
-   - Mettez TableAuxiliaire[Type] dans le champ Répartition/Groupe
-   - Mettez la mesure [Mouvement] dans le champ Axe Y/Valeur
+Cette formule vérifiera si la valeur dans [VotreColonne] est soit "NON-PROD", soit "UAT", soit "DEV". Si l'une de ces conditions est vraie, elle renverra "HORS PROD", sinon elle renverra "PROD".
 
-Cette approche contourne le problème en évitant d'utiliser directement status_mouvement dans votre nouvelle mesure, et utilise plutôt les colonnes created et deleted d'origine.
+Vous pouvez ajouter autant de conditions que nécessaire à l'intérieur de la fonction OR().
 
-Dites-moi si cette solution fonctionne pour vous ou si vous avez besoin d'ajustements supplémentaires.
+Si vous préférez utiliser SWITCH avec plusieurs conditions, vous pouvez l'écrire ainsi:
+
+```
+Environnement = 
+SWITCH(
+    TRUE(),
+    [VotreColonne] = "NON-PROD", "HORS PROD",
+    [VotreColonne] = "UAT", "HORS PROD",
+    [VotreColonne] = "DEV", "HORS PROD",
+    // Autres conditions si nécessaire
+    "PROD" // Valeur par défaut
+)
+```
