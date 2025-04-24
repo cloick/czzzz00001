@@ -165,3 +165,35 @@ RETURN
 Cette version spécifie clairement que nous comptons les occurrences où les valeurs d'Appops correspondent entre les deux tables.
 
 
+Je comprends mieux le problème maintenant. Effectivement, la formule renvoie la valeur minimale parmi les comptages non nuls, mais ne tient pas compte des Appops qui sont complètement absentes (qui devraient avoir un comptage de 0).
+
+Pour résoudre ce problème, nous devons être sûrs que la formule inclut également les Appops qui ne sont pas du tout présentes dans la table principale. Voici une formule modifiée:
+
+```
+MinValue = 
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        VALUES('TableDesAppops'[Appops]),
+        "Comptage", 
+        COALESCE(
+            CALCULATE(
+                COUNTROWS('VotreTable'),
+                FILTER(
+                    ALL('VotreTable'),
+                    'VotreTable'[Appops] = EARLIER('TableDesAppops'[Appops])
+                )
+            ),
+            0
+        )
+    )
+RETURN
+    MINX(AppopsCount, [Comptage])
+```
+
+Cette formule utilise:
+1. FILTER avec ALL pour s'assurer qu'on examine toutes les lignes sans tenir compte des relations existantes
+2. COALESCE pour s'assurer que si aucune correspondance n'est trouvée, la valeur sera 0 et non vide
+3. MINX pour trouver la valeur minimale parmi tous ces comptages, y compris les zéros
+
+Si vous avez plusieurs Appops qui sont absentes de la table principale (avec un comptage de 0) et d'autres qui sont présentes (avec des comptages de 1 ou plus), cette formule devrait correctement renvoyer 0 comme valeur minimale.
+
