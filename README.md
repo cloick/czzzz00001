@@ -50,3 +50,51 @@ Ainsi, peu importe quels filtres sont appliqués dans votre rapport ou visuel, c
 
 
 
+
+
+Je comprends mieux maintenant. Si la liste des Appops à compter vient d'une autre table, vous devez ajuster la formule pour prendre en compte cette relation. Voici comment vous pourriez modifier la mesure:
+
+```
+MinValue = 
+VAR AppopsCount = 
+    SUMMARIZE(
+        'TableDesAppops',  // La table qui contient la liste des Appops
+        'TableDesAppops'[Appops],
+        "Comptage", CALCULATE(
+            COUNTROWS('VotreTable'),  // La table où vous comptez les occurrences
+            REMOVEFILTERS('VotreTable')
+        )
+    )
+RETURN
+    MINX(AppopsCount, [Comptage])
+```
+
+Dans cette formule:
+- 'TableDesAppops' est la table qui contient la liste des Appops que vous voulez analyser
+- 'VotreTable' est la table où vous voulez compter les occurrences de ces Appops
+- REMOVEFILTERS supprime tous les filtres de contexte sur 'VotreTable'
+- CALCULATE compte les lignes dans 'VotreTable' pour chaque valeur Appops
+- MINX trouve la valeur minimale parmi tous ces comptages
+
+Si les deux tables sont reliées par une relation dans votre modèle de données, le filtre se propagera automatiquement. Si ce n'est pas le cas, vous devrez peut-être ajouter un filtre explicite:
+
+```
+MinValue = 
+VAR AppopsCount = 
+    SUMMARIZE(
+        'TableDesAppops',
+        'TableDesAppops'[Appops],
+        "Comptage", CALCULATE(
+            COUNTROWS('VotreTable'),
+            REMOVEFILTERS('VotreTable'),
+            'VotreTable'[Appops] = 'TableDesAppops'[Appops]  // Relation explicite
+        )
+    )
+RETURN
+    MINX(AppopsCount, [Comptage])
+```
+
+Cette formule s'assurera de compter correctement les occurrences même si les deux tables ne sont pas reliées dans votre modèle de données.
+
+
+
