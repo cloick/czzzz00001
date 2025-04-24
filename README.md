@@ -197,3 +197,28 @@ Cette formule utilise:
 
 Si vous avez plusieurs Appops qui sont absentes de la table principale (avec un comptage de 0) et d'autres qui sont présentes (avec des comptages de 1 ou plus), cette formule devrait correctement renvoyer 0 comme valeur minimale.
 
+
+
+_____
+
+
+Pour obtenir simplement le nombre maximal d'occurrences d'une Appops dans votre table principale, sans vous référer à la table de référence, voici une formule DAX plus simple:
+
+```
+MaxOccurrences = 
+VAR CountByAppops = 
+    SUMMARIZE(
+        'VotreTable',
+        'VotreTable'[Appops],
+        "NombreOccurrences", COUNTX(CURRENTGROUP(), 1)
+    )
+RETURN
+    MAXX(CountByAppops, [NombreOccurrences])
+```
+
+Cette formule:
+1. Regroupe les données de 'VotreTable' par la colonne [Appops]
+2. Compte le nombre d'occurrences pour chaque valeur d'Appops
+3. Retourne la valeur maximale parmi ces comptages
+
+C'est effectivement une approche plus directe pour obtenir le maximum si vous n'avez pas besoin de vous référer à la table de référence. Cette méthode considère uniquement les Appops qui existent réellement dans 'VotreTable', ce qui explique pourquoi vous obtenez 41 et non 127.
