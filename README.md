@@ -222,3 +222,46 @@ Cette formule:
 3. Retourne la valeur maximale parmi ces comptages
 
 C'est effectivement une approche plus directe pour obtenir le maximum si vous n'avez pas besoin de vous référer à la table de référence. Cette méthode considère uniquement les Appops qui existent réellement dans 'VotreTable', ce qui explique pourquoi vous obtenez 41 et non 127.
+
+
+
+Je comprends maintenant - vous avez besoin d'une contrainte supplémentaire pour ne compter que les Appops qui commencent par "Ght-hdiz-aze" et cette information se trouve dans la colonne "type". Voici la formule modifiée:
+
+```
+MaxOccurrences = 
+VAR AppopsValues = 
+    FILTER(
+        VALUES('VotreTable'[Appops]),
+        CONTAINSSTRING('VotreTable'[type], "Ght-hdiz-aze")
+    )
+VAR CountByAppops = 
+    ADDCOLUMNS(
+        AppopsValues,
+        "NombreOccurrences", 
+        CALCULATE(
+            COUNT('VotreTable'[Appops]),
+            FILTER(
+                'VotreTable',
+                CONTAINSSTRING('VotreTable'[type], "Ght-hdiz-aze")
+            )
+        )
+    )
+RETURN
+    MAXX(CountByAppops, [NombreOccurrences])
+```
+
+Cette formule:
+1. Filtre d'abord pour ne garder que les Appops dont la colonne "type" contient "Ght-hdiz-aze"
+2. Compte ensuite les occurrences de chaque Appops qui respectent cette condition
+3. Retourne la valeur maximale parmi ces comptages
+
+Si la condition est spécifiquement que le texte doit *commencer par* "Ght-hdiz-aze" (plutôt que simplement contenir cette chaîne), vous pourriez utiliser PATHCONTAINS à la place:
+
+```
+FILTER(
+    'VotreTable',
+    LEFT('VotreTable'[type], 11) = "Ght-hdiz-aze"
+)
+```
+
+Cette version vérifiera si les 11 premiers caractères correspondent exactement à "Ght-hdiz-aze".
