@@ -265,3 +265,75 @@ FILTER(
 ```
 
 Cette version vérifiera si les 11 premiers caractères correspondent exactement à "Ght-hdiz-aze".
+
+
+
+'xxxxxxxxx
+
+
+Voici la formule avec REMOVEFILTERS pour s'assurer que vos filtres de segments n'affectent pas le résultat:
+
+```
+MaxValue = 
+VAR AppopsCount = 
+    FILTER(
+        ADDCOLUMNS(
+            VALUES(REMOVEFILTERS('TableDesAppops')[Appops]),
+            "Comptage", 
+            COALESCE(
+                CALCULATE(
+                    COUNTROWS('VotreTable'),
+                    REMOVEFILTERS('VotreTable'),
+                    FILTER(
+                        ALL('VotreTable'),
+                        'VotreTable'[Appops] = EARLIER('TableDesAppops'[Appops])
+                    )
+                ),
+                0
+            )
+        ),
+        [Comptage] > 0
+    )
+RETURN
+    MAXX(AppopsCount, [Comptage])
+```
+
+J'ai ajouté REMOVEFILTERS à deux endroits stratégiques:
+1. Autour de `'TableDesAppops'` pour ignorer tous les filtres qui pourraient être appliqués à votre table de référence
+2. Dans le CALCULATE pour ignorer tous les filtres qui pourraient être appliqués à votre table principale
+
+Cette formule devrait maintenant maintenir une valeur constante, quel que soit le segment d'Appops que vous sélectionnez dans vos filtres. Elle calculera toujours le nombre maximal d'occurrences parmi les Appops qui existent à la fois dans votre liste de référence et dans votre table principale, en considérant l'ensemble complet des données.
+
+
+
+Voici la version du MINX avec REMOVEFILTERS pour s'assurer que les filtres de segments n'affectent pas le résultat:
+
+```
+MinValue = 
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        VALUES(REMOVEFILTERS('TableDesAppops')[Appops]),
+        "Comptage", 
+        COALESCE(
+            CALCULATE(
+                COUNTROWS('VotreTable'),
+                REMOVEFILTERS('VotreTable'),
+                FILTER(
+                    ALL('VotreTable'),
+                    'VotreTable'[Appops] = EARLIER('TableDesAppops'[Appops])
+                )
+            ),
+            0
+        )
+    )
+RETURN
+    MINX(AppopsCount, [Comptage])
+```
+
+Cette formule assure que:
+1. Tous les filtres sur 'TableDesAppops' sont ignorés avec REMOVEFILTERS
+2. Tous les filtres sur 'VotreTable' sont également ignorés avec REMOVEFILTERS
+3. Le calcul prend en compte toutes les Appops de votre liste de référence, y compris celles qui n'apparaissent pas dans la table principale (comptage 0)
+4. La valeur minimale est retournée, qui sera 0 si au moins une Appops de la liste de référence n'existe pas dans la table principale
+
+Cette formule devrait maintenant maintenir une valeur constante, quel que soit le filtre segment que vous appliquez.
