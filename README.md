@@ -96,5 +96,72 @@ RETURN
 
 Cette formule s'assurera de compter correctement les occurrences même si les deux tables ne sont pas reliées dans votre modèle de données.
 
+______
+
+
+Dans ce cas, c'est logique que vous n'obteniez pas zéro. En effet, la formule DAX que j'ai proposée compte les occurrences d'Appops qui existent dans les deux tables, mais elle ne retourne pas 0 pour les Appops qui n'existent pas dans la table principale.
+
+Voici une formule modifiée qui prendra en compte les valeurs absentes et retournera correctement 0 comme valeur minimale si certaines Appops de votre liste ne sont pas présentes:
+
+```
+MinValue = 
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        VALUES('TableDesAppops'[Appops]),
+        "Comptage", 
+        CALCULATE(
+            COUNTROWS('VotreTable'),
+            'VotreTable'[Appops] = EARLIER('TableDesAppops'[Appops])
+        )
+    )
+RETURN
+    MINX(AppopsCount, [Comptage])
+```
+
+Cette formule:
+1. Prend chaque valeur unique d'Appops dans votre liste (TableDesAppops)
+2. Compte combien de fois elle apparaît dans la table principale (VotreTable)
+3. Si une Appops n'apparaît pas du tout, son comptage sera 0
+4. Enfin, elle renvoie la valeur minimale parmi tous ces comptages
+
+Si certaines Appops de votre liste ne sont pas présentes dans VotreTable, la mesure devrait maintenant correctement retourner 0.
+
+
+____
+
+
+Vous avez raison de poser cette question. Dans la formule que j'ai proposée, la relation entre les tables est implicite à travers cette partie:
+
+```
+CALCULATE(
+    COUNTROWS('VotreTable'),
+    'VotreTable'[Appops] = EARLIER('TableDesAppops'[Appops])
+)
+```
+
+Ce code dit spécifiquement à DAX de compter les lignes dans 'VotreTable' où la valeur de la colonne 'VotreTable'[Appops] est égale à la valeur actuelle de 'TableDesAppops'[Appops] (c'est ce que fait la fonction EARLIER).
+
+Et oui, vous avez tout à fait raison - puisque les deux tables sont reliées par une relation sur leurs colonnes Appops respectives, DAX utilise automatiquement cette relation lors du calcul. 
+
+Sans cette condition explicite ou cette relation établie dans le modèle, DAX ne saurait pas quelle colonne utiliser pour faire correspondre les valeurs entre les deux tables.
+
+Si vous voulez rendre la formule plus explicite même avec la relation existante, vous pourriez l'écrire ainsi:
+
+```
+MinValue = 
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        VALUES('TableDesAppops'[Appops]), 
+        "Comptage", 
+        CALCULATE(
+            COUNTROWS('VotreTable'),
+            'VotreTable'[Appops] = EARLIER('TableDesAppops'[Appops])
+        )
+    )
+RETURN
+    MINX(AppopsCount, [Comptage])
+```
+
+Cette version spécifie clairement que nous comptons les occurrences où les valeurs d'Appops correspondent entre les deux tables.
 
 
