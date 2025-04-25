@@ -1,26 +1,15 @@
 
-Je vois l'erreur dans le code. Il semble que le message d'erreur indique "Il ne s'agit pas d'une expression DAX valide."
+Le problème persiste malgré les différentes approches que nous avons essayées. Reprenons cette situation depuis le début et analysons-la méthodiquement.
 
-En examinant le code, je remarque une potentielle erreur dans la construction de l'appel EXISTS. Voici ce qui pourrait causer le problème:
+Ce que nous voulons:
+1. Prendre toutes les valeurs d'Appops dans 'Appops_' (en ignorant les filtres)
+2. Compter combien de fois chaque Appops apparaît dans 'windows_new'
+3. Ne garder que les Appops qui apparaissent réellement (comptage > 0)
+4. Trouver le maximum de ces comptages
 
-1. Dans la ligne 12, l'appel à EXISTS est problématique: 
-   ```
-   && EXISTS(VALUES('Appops_'[Appops]), 'Appops_'[Appops] = 'windows_new'[Appops])
-   ```
+La difficulté principale semble être que des valeurs vides ou NULL dans 'windows_new' sont comptées et associées à des valeurs de 'Appops_', ce qui donne un résultat erroné (127 occurrences de valeurs vides).
 
-La syntaxe d'EXISTS est peut-être incorrecte. Analysons les problèmes possibles:
-
-1. La fonction EXISTS peut être utilisée incorrectement. Dans DAX, la fonction EXISTS a une syntaxe spécifique et attend certains types d'arguments.
-
-2. Il est possible que l'imbrication de VALUES à l'intérieur d'EXISTS crée un problème syntaxique.
-
-3. La condition à l'intérieur d'EXISTS pourrait avoir une syntaxe invalide.
-
-Pour corriger ce problème, je vais proposer une formule modifiée qui utilise une approche légèrement différente mais qui devrait accomplir la même chose, en évitant l'utilisation problématique d'EXISTS:
-
-Je vois l'erreur dans votre formule. Le problème se trouve dans l'utilisation d'EXISTS qui n'est pas correctement structurée ici.
-
-La syntaxe de la fonction EXISTS dans DAX est assez spécifique et votre implémentation actuelle n'est pas valide. Essayons une autre approche :
+Essayons une approche différente en utilisant FORMAT comme suggéré:
 
 ```
 MaxValueWindows = 
@@ -34,7 +23,7 @@ VAR AppopsCount =
             FILTER(
                 ALL('windows_new'),
                 'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-                && NOT(ISBLANK('windows_new'[Appops]))
+                && FORMAT('windows_new'[Appops], "") <> ""
             )
         )
     )
@@ -44,18 +33,25 @@ RETURN
     MAXX(AppsWithNonZeroCounts, [Comptage])
 ```
 
-Ou essayez cette version alternative qui utilise TREATAS pour créer une relation virtuelle plus propre :
+Cette approche n'a pas fonctionné correctement non plus.
+
+Essayons une autre stratégie. Au lieu d'utiliser FILTER pour la correspondance, utilisons une approche plus directe:
 
 ```
 MaxValueWindows = 
+VAR ValidAppops = 
+    FILTER(
+        ALL('Appops_'[Appops]),
+        FORMAT([Appops], "") <> ""
+    )
 VAR AppopsCount = 
     ADDCOLUMNS(
-        ALL('Appops_'[Appops]),
+        ValidAppops,
         "Comptage", 
         CALCULATE(
             COUNTROWS('windows_new'),
             REMOVEFILTERS('windows_new'),
-            TREATAS(VALUES('Appops_'[Appops]), 'windows_new'[Appops])
+            'windows_new'[Appops] IN ValidAppops
         )
     )
 VAR AppsWithNonZeroCounts = 
@@ -64,4 +60,76 @@ RETURN
     MAXX(AppsWithNonZeroCounts, [Comptage])
 ```
 
-La version avec TREATAS est particulièrement élégante car elle crée une relation virtuelle entre les deux tables qui ignore naturellement les valeurs vides non correspondantes.
+Une autre approche serait de traiter explicitement les deux tables pour s'assurer qu'aucune valeur vide n'interfère:
+
+```
+MaxValueWindows = 
+VAR NonEmptyAppsFromReference = 
+    FILTER(
+        VALUES('Appops_'[Appops]),
+        FORMAT([Appops], "") <> ""
+    )
+VAR NonEmptyAppsFromWindows = 
+    FILTER(
+        VALUES('windows_new'[Appops]),
+        FORMAT([Appops], "") <> ""
+    )
+VAR CommonAppops = 
+    INTERSECT(NonEmptyAppsFromReference, NonEmptyAppsFromWindows)
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        CommonAppops,
+        "Comptage", 
+        CALCULATE(
+            COUNTROWS('windows_new'),
+            REMOVEFILTERS('windows_new'),
+            'windows_new'[Appops] IN CommonAppops
+        )
+    )
+RETURN
+    MAXX(AppopsCount, [Comptage])
+```
+
+Cette dernière approche utilise INTERSECT pour ne garder que les valeurs qui existent dans les deux tables, puis compte les occurrences uniquement pour ces valeurs communes. Cela devrait éliminer complètement tout problème avec les valeurs vides.
+
+Maintenant, concernant le résultat de 86 avec TREATAS, cela suggère que TREATAS traite les données différemment. Il est possible qu'il regroupe des valeurs que nous considérons comme distinctes ou qu'il capture des correspondances que nos autres formules manquent.
+
+Sans connaître les données exactes, il est difficile de dire pourquoi TREATAS donne 86. Mais l'approche avec INTERSECT pourrait être la plus explicite et la plus contrôlée pour ce cas particulier.
+
+Je comprends les difficultés que vous rencontrez. Utilisons explicitement FORMAT comme vous l'avez suggéré et adoptons une approche différente en utilisant INTERSECT pour identifier précisément les Appops qui existent dans les deux tables:
+
+```
+MaxValueWindows = 
+VAR NonEmptyAppsFromReference = 
+    FILTER(
+        ALL('Appops_'[Appops]),
+        FORMAT([Appops], "") <> ""
+    )
+VAR NonEmptyAppsFromWindows = 
+    FILTER(
+        ALL('windows_new'[Appops]),
+        FORMAT([Appops], "") <> ""
+    )
+VAR CommonAppops = 
+    INTERSECT(NonEmptyAppsFromReference, NonEmptyAppsFromWindows)
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        CommonAppops,
+        "Comptage", 
+        CALCULATE(
+            COUNTROWS('windows_new'),
+            REMOVEFILTERS('windows_new'),
+            'windows_new'[Appops] IN CommonAppops
+        )
+    )
+RETURN
+    MAXX(AppopsCount, [Comptage])
+```
+
+Cette formule:
+1. Identifie toutes les valeurs non-vides dans 'Appops_'
+2. Identifie toutes les valeurs non-vides dans 'windows_new'
+3. Utilise INTERSECT pour ne garder que les valeurs qui existent dans les deux tables
+4. Compte les occurrences uniquement pour ces valeurs communes
+
+Cette approche est beaucoup plus explicite et devrait éliminer complètement les problèmes avec les valeurs vides. Elle devrait également ignorer les filtres contextuels grâce à l'utilisation de ALL et REMOVEFILTERS.
