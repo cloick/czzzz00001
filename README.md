@@ -1,52 +1,19 @@
-L'erreur indique : "La fonction VALUES attend une expression de référence de colonne ou une expression de référence de table pour l'argument '1'."
 
-Le problème est visible dans votre code. Dans la deuxième image, on voit que vous utilisez:
+Oui, je comprends bien la nuance pour le MAX. Pour le MAX, nous voulons:
 
+1. Considérer uniquement les Appops qui existent à la fois dans la table 'windows_new' ET dans la table 'Appops_'
+2. Ignorer les Appops qui existent dans 'Appops_' mais n'apparaissent pas dans 'windows_new'
+3. Assurer que le calcul soit insensible aux filtres contextuels
+
+Pour accomplir cela, nous allons:
+1. Utiliser ALL pour ignorer les filtres sur 'Appops_'
+2. Compter les occurrences de chaque Appops dans 'windows_new' 
+3. Filtrer pour ne garder que les Appops avec un comptage > 0
+4. Retourner le MAX
+
+La formule ressemblerait à ceci:
 ```
-VALUES(REMOVEFILTERS('Appops_'[Appops]))
-```
-
-C'est ce qui provoque l'erreur. La fonction VALUES attend directement une référence de colonne ou de table, mais vous lui passez une expression (REMOVEFILTERS) à la place.
-
-Pour résoudre ce problème, il faut restructurer votre code. L'idée est que vous voulez récupérer toutes les valeurs de la colonne Appops de la table Appops_, sans tenir compte des filtres. Il y a deux approches principales pour corriger cela:
-
-1. Appliquer REMOVEFILTERS au niveau du CALCULATE plutôt qu'au niveau des VALUES
-2. Utiliser ALL à la place, qui est une meilleure approche dans ce cas
-
-Voici comment corriger ce code:
-
-Je vois l'erreur dans votre formule. Le message indique : "La fonction VALUES attend une expression de référence de colonne ou une expression de référence de table pour l'argument '1'."
-
-Le problème est que vous avez placé REMOVEFILTERS à l'intérieur de VALUES, ce qui n'est pas une construction valide en DAX. La fonction VALUES doit recevoir directement une référence de colonne ou de table.
-
-Voici comment corriger votre formule :
-
-```
-MinValueWindows = 
-VAR AppopsCount = 
-    ADDCOLUMNS(
-        VALUES('Appops_'[Appops]),  // D'abord référence directe à la colonne
-        "Comptage", 
-        COALESCE(
-            CALCULATE(
-                COUNTROWS('windows_new'),
-                REMOVEFILTERS('windows_new'),  // Ici le REMOVEFILTERS est correctement placé
-                FILTER(
-                    ALL('windows_new'),
-                    'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-                )
-            ),
-            0
-        )
-    )
-RETURN
-    MINX(AppopsCount, [Comptage])
-```
-
-Alternativement, vous pourriez utiliser une approche avec ALL qui accomplit la même chose que REMOVEFILTERS pour votre cas :
-
-```
-MinValueWindows = 
+MaxValueWindows = 
 VAR AppopsCount = 
     ADDCOLUMNS(
         ALL('Appops_'[Appops]),  // ALL ignore tous les filtres
@@ -63,8 +30,46 @@ VAR AppopsCount =
             0
         )
     )
+VAR AppsWithNonZeroCounts = 
+    FILTER(AppopsCount, [Comptage] > 0)
 RETURN
-    MINX(AppopsCount, [Comptage])
+    MAXX(AppsWithNonZeroCounts, [Comptage])
 ```
 
-L'objectif est le même - vous voulez ignorer tous les filtres sur Appops_, mais la construction syntaxique doit être correcte pour que DAX puisse l'interpréter.
+Cette formule est similaire à celle qui a fonctionné pour le MIN, mais avec l'ajout d'une étape de filtrage qui élimine les comptages à zéro avant de calculer le maximum.
+
+Parfaitement, je comprends votre besoin exact pour le MAX :
+
+Vous voulez trouver le nombre maximum d'occurrences, mais uniquement parmi les Appops qui existent à la fois :
+1. Dans votre table de référence 'Appops_'
+2. ET dans votre table de données 'windows_new'
+
+Voici la formule qui accomplira cela :
+
+```
+MaxValueWindows = 
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        ALL('Appops_'[Appops]),  // ALL ignore tous les filtres
+        "Comptage", 
+        COALESCE(
+            CALCULATE(
+                COUNTROWS('windows_new'),
+                REMOVEFILTERS('windows_new'),
+                FILTER(
+                    ALL('windows_new'),
+                    'windows_new'[Appops] = EARLIER('Appops_'[Appops])
+                )
+            ),
+            0
+        )
+    )
+VAR AppsWithNonZeroCounts = 
+    FILTER(AppopsCount, [Comptage] > 0)
+RETURN
+    MAXX(AppsWithNonZeroCounts, [Comptage])
+```
+
+La clé ici est l'étape intermédiaire avec `FILTER(AppopsCount, [Comptage] > 0)` qui élimine les Appops absentes de 'windows_new' avant de calculer le maximum.
+
+Cette formule vous donnera le nombre maximal d'occurrences tout en restant insensible aux filtres, exactement comme vous le souhaitez.
