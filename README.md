@@ -1,32 +1,26 @@
 
-Le problème que soulève l'utilisateur est fondamental et important. Analysons cette situation :
+Je vois l'erreur dans le code. Il semble que le message d'erreur indique "Il ne s'agit pas d'une expression DAX valide."
 
-1. La table 'Appops_' est la table de référence et ne contient PAS de valeurs vides.
-2. La table 'windows_new' est la table de données et contient apparemment des valeurs vides.
-3. Nous voulons compter les occurrences uniquement des Appops qui existent dans 'Appops_'.
-4. Donc logiquement, les valeurs vides de 'windows_new' ne devraient jamais entrer en ligne de compte.
+En examinant le code, je remarque une potentielle erreur dans la construction de l'appel EXISTS. Voici ce qui pourrait causer le problème:
 
-Le problème vient probablement de la façon dont DAX gère la comparaison avec EARLIER. Si nous définissons correctement le filtre, toute valeur qui n'est pas dans 'Appops_' (y compris les valeurs vides) devrait être automatiquement exclue.
+1. Dans la ligne 12, l'appel à EXISTS est problématique: 
+   ```
+   && EXISTS(VALUES('Appops_'[Appops]), 'Appops_'[Appops] = 'windows_new'[Appops])
+   ```
 
-Repensons la formule. Le cœur du problème est dans cette partie :
-```
-FILTER(
-    ALL('windows_new'),
-    'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-)
-```
+La syntaxe d'EXISTS est peut-être incorrecte. Analysons les problèmes possibles:
 
-Théoriquement, cette condition devrait déjà exclure les valeurs vides de 'windows_new' si la table 'Appops_' ne contient pas de vides. Mais il semble que cela ne fonctionne pas comme prévu.
+1. La fonction EXISTS peut être utilisée incorrectement. Dans DAX, la fonction EXISTS a une syntaxe spécifique et attend certains types d'arguments.
 
-Une approche plus claire pourrait être d'utiliser EXISTS pour vérifier que l'Appops existe dans la table de référence :
+2. Il est possible que l'imbrication de VALUES à l'intérieur d'EXISTS crée un problème syntaxique.
 
-Vous avez parfaitement raison ! C'est une observation très pertinente. 
+3. La condition à l'intérieur d'EXISTS pourrait avoir une syntaxe invalide.
 
-En effet, si notre formule fonctionnait correctement, elle ne devrait jamais prendre en compte les valeurs vides de 'windows_new' puisque ces valeurs vides n'existent pas dans votre table de référence 'Appops_'.
+Pour corriger ce problème, je vais proposer une formule modifiée qui utilise une approche légèrement différente mais qui devrait accomplir la même chose, en évitant l'utilisation problématique d'EXISTS:
 
-Le problème fondamental ici est la façon dont DAX traite les comparaisons impliquant des valeurs vides. Même avec la condition `'windows_new'[Appops] = EARLIER('Appops_'[Appops])`, DAX peut parfois faire des associations incorrectes avec les valeurs NULL/vides.
+Je vois l'erreur dans votre formule. Le problème se trouve dans l'utilisation d'EXISTS qui n'est pas correctement structurée ici.
 
-Essayons une approche différente, en utilisant EXISTS qui est plus précis pour ce type de jointure logique :
+La syntaxe de la fonction EXISTS dans DAX est assez spécifique et votre implémentation actuelle n'est pas valide. Essayons une autre approche :
 
 ```
 MaxValueWindows = 
@@ -40,7 +34,7 @@ VAR AppopsCount =
             FILTER(
                 ALL('windows_new'),
                 'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-                && EXISTS(VALUES('Appops_'[Appops]), 'Appops_'[Appops] = 'windows_new'[Appops])
+                && NOT(ISBLANK('windows_new'[Appops]))
             )
         )
     )
@@ -50,6 +44,24 @@ RETURN
     MAXX(AppsWithNonZeroCounts, [Comptage])
 ```
 
-L'ajout de `EXISTS` garantit explicitement que l'Appops existe dans la table de référence, ce qui devrait éliminer automatiquement les valeurs vides problématiques.
+Ou essayez cette version alternative qui utilise TREATAS pour créer une relation virtuelle plus propre :
 
-Vous avez tout à fait raison de questionner la logique de base - c'est ce type de raisonnement qui permet d'améliorer les formules DAX.
+```
+MaxValueWindows = 
+VAR AppopsCount = 
+    ADDCOLUMNS(
+        ALL('Appops_'[Appops]),
+        "Comptage", 
+        CALCULATE(
+            COUNTROWS('windows_new'),
+            REMOVEFILTERS('windows_new'),
+            TREATAS(VALUES('Appops_'[Appops]), 'windows_new'[Appops])
+        )
+    )
+VAR AppsWithNonZeroCounts = 
+    FILTER(AppopsCount, [Comptage] > 0)
+RETURN
+    MAXX(AppsWithNonZeroCounts, [Comptage])
+```
+
+La version avec TREATAS est particulièrement élégante car elle crée une relation virtuelle entre les deux tables qui ignore naturellement les valeurs vides non correspondantes.
