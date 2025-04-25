@@ -1,50 +1,26 @@
 
-Oui, je comprends bien la nuance pour le MAX. Pour le MAX, nous voulons:
+Ah, nous avons un problème intéressant ici. La formule actuelle semble bien compter les occurrences mais a un problème avec les valeurs vides.
 
-1. Considérer uniquement les Appops qui existent à la fois dans la table 'windows_new' ET dans la table 'Appops_'
-2. Ignorer les Appops qui existent dans 'Appops_' mais n'apparaissent pas dans 'windows_new'
-3. Assurer que le calcul soit insensible aux filtres contextuels
+D'après ce que vous décrivez:
+1. Il y a des entrées vides dans 'windows_new'[Appops] (127 occurrences)
+2. Mais il n'y a pas d'entrée vide dans 'Appops_'[Appops]
+3. Pourtant la mesure renvoie 127, ce qui suggère qu'elle compte quand même les valeurs vides
 
-Pour accomplir cela, nous allons:
-1. Utiliser ALL pour ignorer les filtres sur 'Appops_'
-2. Compter les occurrences de chaque Appops dans 'windows_new' 
-3. Filtrer pour ne garder que les Appops avec un comptage > 0
-4. Retourner le MAX
+Cela pourrait se produire si:
+- DAX traite les valeurs vides d'une manière spéciale dans les comparaisons
+- Il y a un problème avec la façon dont la condition FILTER est évaluée
 
-La formule ressemblerait à ceci:
-```
-MaxValueWindows = 
-VAR AppopsCount = 
-    ADDCOLUMNS(
-        ALL('Appops_'[Appops]),  // ALL ignore tous les filtres
-        "Comptage", 
-        COALESCE(
-            CALCULATE(
-                COUNTROWS('windows_new'),
-                REMOVEFILTERS('windows_new'),
-                FILTER(
-                    ALL('windows_new'),
-                    'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-                )
-            ),
-            0
-        )
-    )
-VAR AppsWithNonZeroCounts = 
-    FILTER(AppopsCount, [Comptage] > 0)
-RETURN
-    MAXX(AppsWithNonZeroCounts, [Comptage])
-```
+Pour résoudre ce problème, nous devons explicitement exclure les valeurs vides de 'windows_new'[Appops] et s'assurer que nous ne comptons que des correspondances exactes.
 
-Cette formule est similaire à celle qui a fonctionné pour le MIN, mais avec l'ajout d'une étape de filtrage qui élimine les comptages à zéro avant de calculer le maximum.
+Modifions la formule pour:
+1. Exclure explicitement les valeurs vides/nulles dans 'windows_new'
+2. S'assurer que nous ne considérons que des correspondances exactes entre les deux tables
 
-Parfaitement, je comprends votre besoin exact pour le MAX :
+Plusieurs approches possibles:
 
-Vous voulez trouver le nombre maximum d'occurrences, mais uniquement parmi les Appops qui existent à la fois :
-1. Dans votre table de référence 'Appops_'
-2. ET dans votre table de données 'windows_new'
+Je comprends le problème - la formule actuelle prend en compte les valeurs vides dans 'windows_new' même si elles n'existent pas dans 'Appops_'. C'est un comportement typique de DAX qui traite parfois les valeurs NULL/BLANK de façon particulière lors des comparaisons.
 
-Voici la formule qui accomplira cela :
+Modifions la formule pour exclure explicitement ces valeurs vides :
 
 ```
 MaxValueWindows = 
@@ -58,7 +34,8 @@ VAR AppopsCount =
                 REMOVEFILTERS('windows_new'),
                 FILTER(
                     ALL('windows_new'),
-                    'windows_new'[Appops] = EARLIER('Appops_'[Appops])
+                    'windows_new'[Appops] = EARLIER('Appops_'[Appops]) 
+                    && NOT(ISBLANK('windows_new'[Appops]))  // Exclure les valeurs vides
                 )
             ),
             0
@@ -70,6 +47,6 @@ RETURN
     MAXX(AppsWithNonZeroCounts, [Comptage])
 ```
 
-La clé ici est l'étape intermédiaire avec `FILTER(AppopsCount, [Comptage] > 0)` qui élimine les Appops absentes de 'windows_new' avant de calculer le maximum.
+Le changement clé est l'ajout de `&& NOT(ISBLANK('windows_new'[Appops]))` qui exclut explicitement les valeurs vides dans la table windows_new.
 
-Cette formule vous donnera le nombre maximal d'occurrences tout en restant insensible aux filtres, exactement comme vous le souhaitez.
+Cette modification devrait maintenant donner le résultat correct (41 selon ce que vous avez mentionné précédemment) en ne considérant que les correspondances exactes et non-vides entre les deux tables.
