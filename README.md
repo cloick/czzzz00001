@@ -1,85 +1,49 @@
 
-Je vais maintenant fournir les trois formules corrigées pour MIN, MAX et AVG qui respectent les filtres de la table Environnement tout en ignorant ceux de la table Appops_.
+Je comprends ce que vous cherchez à faire pour compléter votre jauge. Vous voulez une mesure "valeur cible" qui:
 
-Pour chaque formule, je vais:
-1. Capturer le filtre actuel sur Environnement
-2. Utiliser ALLEXCEPT pour préserver les filtres sur la colonne Environnement
-3. Réappliquer explicitement le filtre d'Environnement
+1. Réagit au filtre segment Appops (contrairement aux autres mesures qui ignorent ce filtre)
+2. Si une Appops spécifique est sélectionnée dans le segment, elle doit afficher le nombre d'occurrences de cette Appops
+3. Cette mesure doit quand même respecter les filtres Environnement comme les autres mesures
 
-Commençons avec le MIN, puis le MAX, puis la moyenne.
+Pour cette valeur cible, nous n'utiliserons pas ALL('Appops_'[Appops]) car nous voulons que la mesure soit sensible à la sélection de l'utilisateur. Nous aurons besoin de:
 
-Voici les trois formules corrigées qui ignorent uniquement les filtres Appops_ tout en respectant les filtres Environnement :
+1. Capturer le filtre actuel sur Appops 
+2. Respecter également le filtre Environnement comme pour les autres mesures
+3. Compter les occurrences de l'Appops sélectionnée
+
+Si plusieurs Appops sont sélectionnées ou si aucune n'est sélectionnée, nous devrons décider d'un comportement par défaut (soit somme, soit moyenne, soit valeur maximale des sélections).
+
+Je comprends parfaitement ce que vous cherchez à faire. Pour compléter votre jauge, vous avez besoin d'une mesure "valeur cible" qui, contrairement aux autres, doit réagir à la sélection du segment Appops.
+
+Voici la mesure pour votre valeur cible :
 
 ```
-MinValueWindows = 
+ValeurCibleWindows = 
 VAR CurrentEnvFilter = TREATAS(VALUES('Environnement'[Environnement]), 'windows_new'[Environnement])
-VAR AppopsCount = 
-    ADDCOLUMNS(
-        ALL('Appops_'[Appops]),
-        "Comptage", 
-        COALESCE(
-            CALCULATE(
-                COUNTROWS('windows_new'),
-                ALLEXCEPT('windows_new', 'windows_new'[Environnement]),
-                CurrentEnvFilter,
-                FILTER(
-                    ALL('windows_new'),
-                    'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-                )
-            ),
-            0
+VAR CurrentAppsSelection = VALUES('Appops_'[Appops]) // Capture la sélection actuelle d'Appops
+VAR SelectedCount = 
+    CALCULATE(
+        COUNTROWS('windows_new'),
+        CurrentEnvFilter,
+        FILTER(
+            ALL('windows_new'),
+            'windows_new'[Appops] IN CurrentAppsSelection
+            && FORMAT('windows_new'[Appops], "") <> ""
         )
     )
 RETURN
-    MINX(AppopsCount, [Comptage])
-```
-
-```
-MaxValueWindows = 
-VAR CurrentEnvFilter = TREATAS(VALUES('Environnement'[Environnement]), 'windows_new'[Environnement])
-VAR AppopsCount = 
-    ADDCOLUMNS(
-        ALL('Appops_'[Appops]),
-        "Comptage", 
-        CALCULATE(
-            COUNTROWS('windows_new'),
-            ALLEXCEPT('windows_new', 'windows_new'[Environnement]),
-            CurrentEnvFilter,
-            FILTER(
-                ALL('windows_new'),
-                'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-                && FORMAT('windows_new'[Appops], "") <> ""
-            )
-        )
+    // Si une Appops est sélectionnée, renvoie son nombre d'occurrences
+    IF(
+        COUNTROWS(CurrentAppsSelection) > 0,
+        SelectedCount,
+        // Sinon, valeur par défaut (0 ou autre valeur souhaitée)
+        0
     )
-VAR AppsWithNonZeroCounts = 
-    FILTER(AppopsCount, [Comptage] > 0)
-RETURN
-    MAXX(AppsWithNonZeroCounts, [Comptage])
 ```
 
-```
-AvgValueWindows = 
-VAR CurrentEnvFilter = TREATAS(VALUES('Environnement'[Environnement]), 'windows_new'[Environnement])
-VAR AppopsCount = 
-    ADDCOLUMNS(
-        ALL('Appops_'[Appops]),
-        "Comptage", 
-        CALCULATE(
-            COUNTROWS('windows_new'),
-            ALLEXCEPT('windows_new', 'windows_new'[Environnement]),
-            CurrentEnvFilter,
-            FILTER(
-                ALL('windows_new'),
-                'windows_new'[Appops] = EARLIER('Appops_'[Appops])
-                && FORMAT('windows_new'[Appops], "") <> ""
-            )
-        )
-    )
-VAR AppsWithNonZeroCounts = 
-    FILTER(AppopsCount, [Comptage] > 0)
-RETURN
-    AVERAGEX(AppsWithNonZeroCounts, [Comptage])
-```
+Cette mesure :
+1. Respecte les filtres Environnement comme les autres mesures
+2. Compte uniquement les occurrences des Appops sélectionnées dans le segment
+3. Si aucune Appops n'est sélectionnée, renvoie 0 (ou une autre valeur par défaut que vous pourriez préférer)
 
-Ces formules utilisent maintenant ALLEXCEPT au lieu de REMOVEFILTERS, ce qui permet de préserver les filtres sur la colonne Environnement tout en supprimant les autres filtres. Le TREATAS capture et réapplique explicitement ces filtres pour garantir qu'ils sont correctement pris en compte.
+Cette mesure complètera parfaitement votre jauge car elle fournira la valeur cible qui réagit au segment Appops.
