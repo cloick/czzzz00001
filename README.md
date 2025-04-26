@@ -1,91 +1,35 @@
+Avec cette précision supplémentaire, je dois modifier les formules pour que les valeurs dans la colonne "Décommissionnements" soient négatives. C'est un ajustement simple.
 
-Je comprends ce que vous cherchez à faire pour compléter votre jauge. Vous voulez une mesure "valeur cible" qui:
+Pour la méthode DAX, il faut multiplier le compte par -1:
+- Dans la formule SUMMARIZECOLUMNS, je vais modifier la partie qui calcule les décommissionnements
 
-1. Réagit au filtre segment Appops (contrairement aux autres mesures qui ignorent ce filtre)
-2. Si une Appops spécifique est sélectionnée dans le segment, elle doit afficher le nombre d'occurrences de cette Appops
-3. Cette mesure doit quand même respecter les filtres Environnement comme les autres mesures
+Pour la méthode Power Query:
+- Après l'étape de regroupement, nous pouvons ajouter une étape pour transformer les valeurs de la colonne Décommissionnements en les multipliant par -1
 
-Pour cette valeur cible, nous n'utiliserons pas ALL('Appops_'[Appops]) car nous voulons que la mesure soit sensible à la sélection de l'utilisateur. Nous aurons besoin de:
+Pas de problème ! Il est facile d'ajuster les valeurs des décommissionnements pour qu'elles soient négatives.
 
-1. Capturer le filtre actuel sur Appops 
-2. Respecter également le filtre Environnement comme pour les autres mesures
-3. Compter les occurrences de l'Appops sélectionnée
-
-Si plusieurs Appops sont sélectionnées ou si aucune n'est sélectionnée, nous devrons décider d'un comportement par défaut (soit somme, soit moyenne, soit valeur maximale des sélections).
-
-Je comprends parfaitement ce que vous cherchez à faire. Pour compléter votre jauge, vous avez besoin d'une mesure "valeur cible" qui, contrairement aux autres, doit réagir à la sélection du segment Appops.
-
-Voici la mesure pour votre valeur cible :
+### Méthode 1: Table calculée avec DAX (ajustée)
 
 ```
-ValeurCibleWindows = 
-VAR CurrentEnvFilter = TREATAS(VALUES('Environnement'[Environnement]), 'windows_new'[Environnement])
-VAR CurrentAppsSelection = VALUES('Appops_'[Appops]) // Capture la sélection actuelle d'Appops
-VAR SelectedCount = 
-    CALCULATE(
-        COUNTROWS('windows_new'),
-        CurrentEnvFilter,
-        FILTER(
-            ALL('windows_new'),
-            'windows_new'[Appops] IN CurrentAppsSelection
-            && FORMAT('windows_new'[Appops], "") <> ""
-        )
-    )
-RETURN
-    // Si une Appops est sélectionnée, renvoie son nombre d'occurrences
-    IF(
-        COUNTROWS(CurrentAppsSelection) > 0,
-        SelectedCount,
-        // Sinon, valeur par défaut (0 ou autre valeur souhaitée)
-        0
-    )
+srv_mouvement_vrai = 
+SUMMARIZECOLUMNS(
+    srv_mouvement[modele_os],
+    "Constructions", CALCULATE(COUNTROWS(srv_mouvement), srv_mouvement[status_mouvement] = "Construit"),
+    "Décommissionnements", -1 * CALCULATE(COUNTROWS(srv_mouvement), srv_mouvement[status_mouvement] = "Décommissionné")
+)
 ```
 
-Cette mesure :
-1. Respecte les filtres Environnement comme les autres mesures
-2. Compte uniquement les occurrences des Appops sélectionnées dans le segment
-3. Si aucune Appops n'est sélectionnée, renvoie 0 (ou une autre valeur par défaut que vous pourriez préférer)
+J'ai simplement multiplié par -1 le calcul pour la colonne "Décommissionnements".
 
-Cette mesure complètera parfaitement votre jauge car elle fournira la valeur cible qui réagit au segment Appops.
+### Méthode 2: Power Query (ajustée)
 
+1. Suivez les étapes précédentes pour créer le regroupement
+2. Après avoir créé votre regroupement:
+   - Cliquez sur l'engrenage de transformation à côté de la colonne "Décommissionnements"
+   - Modifiez la formule pour ajouter une multiplication par -1:
+     ```
+     = Table.TransformColumns(PrécédenteÉtape, {{"Décommissionnements", each _ * -1, Int64.Type}})
+     ```
+   - Ou plus simplement, sélectionnez la colonne "Décommissionnements" après regroupement → clic droit → "Transformer" → "Multiplier par" → saisissez -1
 
-_________________
-
-
-Je comprends le problème. Quand une Appops est sélectionnée qui existe dans la table de référence Appops_ mais pas dans windows_new, la mesure renvoie BLANK (vide) au lieu de 0.
-
-Pour résoudre ce problème, je vais modifier la mesure ValeurCibleWindows en utilisant COALESCE pour remplacer les valeurs vides par 0, et en m'assurant que même si aucune ligne n'est trouvée, nous renvoyons explicitement 0.
-
-La clé est de s'assurer que nous gérons correctement le cas où aucun résultat n'est trouvé.
-
-Vous avez raison, il faut gérer le cas où une Appops sélectionnée n'existe pas dans windows_new et renvoyer 0 au lieu de (vide). Voici la mesure corrigée avec FORMAT :
-
-```
-ValeurCibleWindows = 
-VAR CurrentEnvFilter = TREATAS(VALUES('Environnement'[Environnement]), 'windows_new'[Environnement])
-VAR CurrentAppsSelection = VALUES('Appops_'[Appops]) // Capture la sélection actuelle d'Appops
-VAR SelectedCount = 
-    CALCULATE(
-        COUNTROWS('windows_new'),
-        CurrentEnvFilter,
-        FILTER(
-            ALL('windows_new'),
-            'windows_new'[Appops] IN CurrentAppsSelection
-            && FORMAT('windows_new'[Appops], "") <> ""
-        )
-    )
-RETURN
-    // Utilisation de COALESCE pour remplacer les valeurs BLANK par 0
-    COALESCE(
-        IF(
-            COUNTROWS(CurrentAppsSelection) > 0,
-            SelectedCount,
-            0
-        ),
-        0  // Si le résultat est BLANK, retourne 0
-    )
-```
-
-Cette version garantit que même si une Appops est sélectionnée qui n'existe pas dans windows_new, la mesure renverra toujours 0 au lieu de (vide).
-
-Le COALESCE à la fin s'assure que tout résultat NULL ou BLANK est remplacé par 0, ce qui correspond exactement à ce que vous recherchez pour votre jauge.
+Les valeurs négatives vous aideront probablement à créer des visualisations comme des graphiques à barres empilées positives/négatives, ce qui est très efficace pour ce type de données.
