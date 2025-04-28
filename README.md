@@ -1,93 +1,41 @@
-Pour créer les mesures MaxValueAudit et AvgValueAudit basées sur la même logique que MinValueAudit, je dois simplement remplacer MIN par MAX et AVERAGE respectivement, tout en gardant la même structure avec les filtres.
+Je comprends mieux maintenant. Pour une visualisation de type jauge, la structure typique est:
+- Une valeur actuelle (par exemple la moyenne, minimum, ou une valeur spécifique)
+- Une valeur cible (target)
 
-Le code actuel pour MinValueAudit est:
+La personne veut que la targetValue soit simplement la valeur exacte (colonne [val]) correspondant à la sélection d'Appops et de Libellé spécifiques. Ce n'est pas une agrégation comme MIN, MAX ou AVERAGE.
+
+Dans ce cas, il s'agit plutôt d'obtenir une valeur spécifique de la colonne [val] qui correspond exactement aux sélections de filtres d'Appops et de Libellé (et aussi la date la plus récente). Dans une jauge, cette valeur servirait de "cible" que l'on souhaite atteindre.
+
+Je vais corriger ma formule pour qu'elle corresponde à ce besoin.
+
+Vous avez raison, j'ai mal interprété l'objectif de cette mesure. Pour une jauge, la targetValue doit être la valeur spécifique qui correspond à la sélection d'Appops et Libellé, pas une agrégation.
+
+Voici la formule corrigée :
+
 ```
-MinValueAudit = 
+TargetValueAudit = 
 VAR DerniereDate = MAX('v_stat_kpi'[dat])
-VAR CurrentLibelleFilter = VALUES('v_stat_kpi'[Libellé])
+VAR SelectedAppops = SELECTEDVALUE('v_stat_kpi'[Appops], "")
+VAR SelectedLibelle = SELECTEDVALUE('v_stat_kpi'[Libellé], "")
 RETURN
-CALCULATE(
-    MIN('v_stat_kpi'[val]),
-    'v_stat_kpi'[Libellé] <> "Non pris",
-    'v_stat_kpi'[Appops] <> "Non pris",
-    'v_stat_kpi'[dat] = DerniereDate,
-    REMOVEFILTERS('Appops_'[Appops]),
-    TREATAS(CurrentLibelleFilter, 'v_stat_kpi'[Libellé]) // Préserve le filtre Libellé
+IF(
+    SelectedAppops <> "" && SelectedLibelle <> "",
+    CALCULATE(
+        VALUES('v_stat_kpi'[val]), // Retourne la valeur spécifique, pas une agrégation
+        'v_stat_kpi'[Appops] = SelectedAppops,
+        'v_stat_kpi'[Libellé] = SelectedLibelle,
+        'v_stat_kpi'[dat] = DerniereDate,
+        'v_stat_kpi'[Libellé] <> "Non pris",
+        'v_stat_kpi'[Appops] <> "Non pris"
+    ),
+    BLANK() // Si aucune sélection spécifique, renvoie BLANK
 )
 ```
 
-Pour MaxValueAudit, on remplace MIN par MAX:
-```
-MaxValueAudit = 
-VAR DerniereDate = MAX('v_stat_kpi'[dat])
-VAR CurrentLibelleFilter = VALUES('v_stat_kpi'[Libellé])
-RETURN
-CALCULATE(
-    MAX('v_stat_kpi'[val]),
-    'v_stat_kpi'[Libellé] <> "Non pris",
-    'v_stat_kpi'[Appops] <> "Non pris",
-    'v_stat_kpi'[dat] = DerniereDate,
-    REMOVEFILTERS('Appops_'[Appops]),
-    TREATAS(CurrentLibelleFilter, 'v_stat_kpi'[Libellé])
-)
-```
+Cette formule :
+1. Capture la valeur sélectionnée d'Appops et de Libellé
+2. Si les deux sont sélectionnés, retourne la valeur [val] correspondante
+3. S'assure que nous prenons la date la plus récente
+4. Exclut toujours les valeurs "Non pris"
 
-Pour AvgValueAudit, on remplace MIN par AVERAGE:
-```
-AvgValueAudit = 
-VAR DerniereDate = MAX('v_stat_kpi'[dat])
-VAR CurrentLibelleFilter = VALUES('v_stat_kpi'[Libellé])
-RETURN
-CALCULATE(
-    AVERAGE('v_stat_kpi'[val]),
-    'v_stat_kpi'[Libellé] <> "Non pris",
-    'v_stat_kpi'[Appops] <> "Non pris",
-    'v_stat_kpi'[dat] = DerniereDate,
-    REMOVEFILTERS('Appops_'[Appops]),
-    TREATAS(CurrentLibelleFilter, 'v_stat_kpi'[Libellé])
-)
-```
-
-Tout le reste de la formule reste identique, car nous voulons appliquer exactement la même logique de filtrage et les mêmes conditions. Seule la fonction d'agrégation change (MIN, MAX, AVERAGE).
-
-Merci ! Je suis ravi que ça fonctionne pour vous !
-
-Pour le MAX, voici la formule (simplement remplacer MIN par MAX) :
-
-```
-MaxValueAudit = 
-VAR DerniereDate = MAX('v_stat_kpi'[dat])
-VAR CurrentLibelleFilter = VALUES('v_stat_kpi'[Libellé])
-RETURN
-CALCULATE(
-    MAX('v_stat_kpi'[val]),  // Simplement remplacé MIN par MAX
-    'v_stat_kpi'[Libellé] <> "Non pris",
-    'v_stat_kpi'[Appops] <> "Non pris",
-    'v_stat_kpi'[dat] = DerniereDate,
-    REMOVEFILTERS('Appops_'[Appops]),
-    TREATAS(CurrentLibelleFilter, 'v_stat_kpi'[Libellé])
-)
-```
-
-Et pour la MOYENNE :
-
-```
-AvgValueAudit = 
-VAR DerniereDate = MAX('v_stat_kpi'[dat])
-VAR CurrentLibelleFilter = VALUES('v_stat_kpi'[Libellé])
-RETURN
-CALCULATE(
-    AVERAGE('v_stat_kpi'[val]),  // Remplacé MIN par AVERAGE
-    'v_stat_kpi'[Libellé] <> "Non pris",
-    'v_stat_kpi'[Appops] <> "Non pris",
-    'v_stat_kpi'[dat] = DerniereDate,
-    REMOVEFILTERS('Appops_'[Appops]),
-    TREATAS(CurrentLibelleFilter, 'v_stat_kpi'[Libellé])
-)
-```
-
-Ces formules gardent exactement la même logique que votre MIN qui fonctionne bien - seule la fonction d'agrégation change. Elles vont :
-- Respecter les filtres sur Libellé
-- Ignorer les filtres sur Appops
-- Filtrer pour exclure "Non pris"
-- Se limiter à la date la plus récente
+Cela fonctionnera comme une vraie "target value" pour votre jauge, représentant la valeur exacte qui correspond à une sélection spécifique d'Appops et Libellé.
