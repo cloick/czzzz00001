@@ -600,3 +600,62 @@ if 'dominant_topic' in df_negatif_topics.columns:
     theme_summary = pd.DataFrame()
     
     for theme_id in sorted(df_negatif_topics['dominant_topic'].unique()):
+
+
+        ________________________
+
+# 7. Création d'un tableau de bord pour l'analyse des problématiques récurrentes
+
+# Consolidation des résultats pour créer un tableau de bord des problématiques récurrentes
+if 'dominant_topic' in df_negatif_topics.columns:
+    # Création d'un DataFrame résumant les problématiques par thème
+    theme_summary = pd.DataFrame()
+    
+    for theme_id in sorted(df_negatif_topics['dominant_topic'].unique()):
+        theme_docs = df_negatif_topics[df_negatif_topics['dominant_topic'] == theme_id]
+        
+        # Top mots-clés pour ce thème
+        theme_key_words = topics[f"Thème {theme_id}"]
+        
+        # Exemples de verbatims pour ce thème
+        verbatim_examples = theme_docs['Verbatim'].sample(min(3, len(theme_docs))).tolist()
+        
+        # Statistiques par PP/Direction CA-TS
+        perimetre_counts = theme_docs['PP/Direction CA-TS'].value_counts().to_dict()
+        top_perimetre = max(perimetre_counts.items(), key=lambda x: x[1])[0] if perimetre_counts else "N/A"
+        
+        # Informations sur les lignes sources
+        lignes_sources = theme_docs['ligne_source'].tolist()
+        
+        # Construire l'entrée pour ce thème
+        theme_entry = {
+            'Thème ID': theme_id,
+            'Mots-clés': theme_key_words,
+            'Nombre de verbatims': len(theme_docs),
+            'PP/Direction principale': top_perimetre,
+            'Exemples de verbatims': verbatim_examples,
+            'Numéros de lignes sources': lignes_sources
+        }
+        
+        # Ajouter à notre résumé
+        theme_summary = pd.concat([theme_summary, pd.DataFrame([theme_entry])], ignore_index=True)
+    
+    # Sauvegarde du tableau de bord dans un fichier Excel
+    dashboard_file = 'dashboard_problematiques_recurrentes.xlsx'
+    theme_summary.to_excel(dashboard_file, index=False)
+    print(f"\nTableau de bord des problématiques récurrentes sauvegardé dans '{dashboard_file}'")
+    
+    # Affichage du tableau de bord
+    print("\nTableau de bord des problématiques récurrentes :")
+    print(theme_summary[['Thème ID', 'Mots-clés', 'Nombre de verbatims', 'PP/Direction principale']])
+    
+    # Pour chaque thème, afficher les exemples et les lignes sources
+    for idx, row in theme_summary.iterrows():
+        print(f"\nThème {int(row['Thème ID'])} - {row['Mots-clés']}")
+        print(f"PP/Direction principale: {row['PP/Direction principale']}")
+        print("Exemples de verbatims:")
+        for i, example in enumerate(row['Exemples de verbatims'], 1):
+            print(f"  {i}. {example}")
+        print(f"Lignes sources: {', '.join(map(str, row['Numéros de lignes sources'][:10]))}{'...' if len(row['Numéros de lignes sources']) > 10 else ''}")
+else:
+    print("La modélisation thématique n'a pas été effectuée. Impossible de créer le tableau de bord.")
