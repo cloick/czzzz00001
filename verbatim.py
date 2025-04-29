@@ -12,7 +12,6 @@ from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.decomposition import LatentDirichletAllocation, NMF
-# Suppression de l'import pyLDAvis
 from wordcloud import WordCloud
 import warnings
 
@@ -53,18 +52,19 @@ plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
 
-# Filtrage des données négatives (Plutôt Insatisfaite et Très insatisfaite)
-df_negatif = df[df['Humeur'].isin(['Plutôt Insatisfaite', 'Très insatisfaite'])]
+# Filtrage des données négatives (en supposant que les valeurs négatives contiennent "Insatisfait" ou équivalent)
+# Adaptez ce filtre selon les valeurs réelles de votre colonne 'Humeur'
+df_negatif = df[df['Humeur'].str.contains('nsatisfait|égatif', case=False, na=False)]
 print(f"\nNombre d'entrées négatives : {df_negatif.shape[0]}")
 
-# Distribution des périmètres dans les retours négatifs
-print("\nDistribution des périmètres dans les retours négatifs :")
-print(df_negatif['Perimetre'].value_counts())
+# Distribution des PP/Direction CA-TS dans les retours négatifs
+print("\nDistribution des PP/Direction CA-TS dans les retours négatifs :")
+print(df_negatif['PP/Direction CA-TS'].value_counts())
 
-# Visualisation des périmètres les plus problématiques
+# Visualisation des PP/Direction CA-TS les plus problématiques
 plt.figure(figsize=(12, 6))
-sns.countplot(x='Perimetre', data=df_negatif)
-plt.title('Périmètres avec le plus de retours négatifs')
+sns.countplot(x='PP/Direction CA-TS', data=df_negatif)
+plt.title('PP/Direction CA-TS avec le plus de retours négatifs')
 plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
@@ -76,23 +76,22 @@ plt.title('Statut de traitement des retours négatifs')
 plt.tight_layout()
 plt.show()
 
-# Distribution des sous-périmètres dans les retours négatifs
-if 'Sous perimetre' in df_negatif.columns:
-    plt.figure(figsize=(12, 6))
-    sous_perimetre_counts = df_negatif['Sous perimetre'].value_counts().head(10)  # Top 10 pour lisibilité
-    sns.barplot(x=sous_perimetre_counts.values, y=sous_perimetre_counts.index)
-    plt.title('Top 10 des sous-périmètres avec le plus de retours négatifs')
-    plt.tight_layout()
-    plt.show()
+# Distribution des métiers CA-TS dans les retours négatifs
+plt.figure(figsize=(12, 6))
+metier_counts = df_negatif['Métier CA-TS'].value_counts().head(10)  # Top 10 pour lisibilité
+sns.barplot(x=metier_counts.values, y=metier_counts.index)
+plt.title('Top 10 des métiers CA-TS avec le plus de retours négatifs')
+plt.tight_layout()
+plt.show()
 
 # Analyse temporelle des retours négatifs
-if 'Date de l\'enquete' in df_negatif.columns:
+if 'Date Enquête' in df_negatif.columns:
     # Conversion en datetime si nécessaire
-    if not pd.api.types.is_datetime64_any_dtype(df_negatif['Date de l\'enquete']):
-        df_negatif['Date de l\'enquete'] = pd.to_datetime(df_negatif['Date de l\'enquete'], errors='coerce')
+    if not pd.api.types.is_datetime64_any_dtype(df_negatif['Date Enquête']):
+        df_negatif['Date Enquête'] = pd.to_datetime(df_negatif['Date Enquête'], errors='coerce')
     
     # Agrégation par mois
-    df_negatif['mois'] = df_negatif['Date de l\'enquete'].dt.to_period('M')
+    df_negatif['mois'] = df_negatif['Date Enquête'].dt.to_period('M')
     trend_data = df_negatif.groupby('mois').size()
     
     plt.figure(figsize=(12, 6))
@@ -104,14 +103,14 @@ if 'Date de l\'enquete' in df_negatif.columns:
     plt.tight_layout()
     plt.show()
 
-# Comparaison des humeurs par périmètre
-humeur_perimetre = pd.crosstab(df['Perimetre'], df['Humeur'])
-humeur_perimetre_pct = humeur_perimetre.div(humeur_perimetre.sum(axis=1), axis=0) * 100
+# Comparaison des humeurs par PP/Direction CA-TS
+humeur_perim = pd.crosstab(df['PP/Direction CA-TS'], df['Humeur'])
+humeur_perim_pct = humeur_perim.div(humeur_perim.sum(axis=1), axis=0) * 100
 
 plt.figure(figsize=(14, 8))
-humeur_perimetre_pct.plot(kind='bar', stacked=True, colormap='viridis')
-plt.title('Distribution des humeurs par périmètre (%)')
-plt.xlabel('Périmètre')
+humeur_perim_pct.plot(kind='bar', stacked=True, colormap='viridis')
+plt.title('Distribution des humeurs par PP/Direction CA-TS (%)')
+plt.xlabel('PP/Direction CA-TS')
 plt.ylabel('Pourcentage')
 plt.legend(title='Humeur')
 plt.xticks(rotation=45)
@@ -129,12 +128,11 @@ if 'Verbatim' in df_negatif.columns:
     plt.title('Mots les plus fréquents dans les verbatims négatifs (avant nettoyage)')
     plt.tight_layout()
     plt.show()
-    
-    
-    
-    
-#3. Prétraitement des textes pour l'analyse
 
+
+
+
+# 3. Prétraitement des textes pour l'analyse
 
 import re
 from collections import Counter
@@ -294,9 +292,6 @@ plt.show()
 
 
 # 5. Modélisation thématique (Topic Modeling)
-
-
-
 
 # Préparation des données pour la modélisation thématique
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -470,7 +465,7 @@ else:
     n_topics = max(2, n_topics)  # Au moins 2 thèmes
     print(f"Nombre de thèmes sélectionné : {n_topics}")
     
-    # Création et entraînement du modèle LDA - CORRECTION ICI
+    # Création et entraînement du modèle LDA
     lda = LatentDirichletAllocation(
         n_components=n_topics,
         max_iter=20,
@@ -511,20 +506,20 @@ else:
     df_negatif_topics = df_negatif.loc[valid_docs.index].copy()
     df_negatif_topics['dominant_topic'] = doc_topic_distrib.argmax(axis=1) + 1
     
-    # Analyse des thèmes par périmètre (avec gestion des cas où la colonne n'existe pas)
-    if 'Perimetre' in df_negatif_topics.columns:
-        print("\nDistribution des thèmes par périmètre :")
-        theme_perimetre = pd.crosstab(df_negatif_topics['dominant_topic'], df_negatif_topics['Perimetre'])
+    # Analyse des thèmes par PP/Direction CA-TS
+    if 'PP/Direction CA-TS' in df_negatif_topics.columns:
+        print("\nDistribution des thèmes par PP/Direction CA-TS :")
+        theme_perimetre = pd.crosstab(df_negatif_topics['dominant_topic'], df_negatif_topics['PP/Direction CA-TS'])
         print(theme_perimetre)
         
-        # Visualisation de la distribution des thèmes par périmètre
+        # Visualisation de la distribution des thèmes par PP/Direction CA-TS
         plt.figure(figsize=(14, 8))
         theme_perimetre_pct = theme_perimetre.div(theme_perimetre.sum(axis=0), axis=1) * 100
         theme_perimetre_pct.plot(kind='bar', stacked=True, colormap='viridis')
-        plt.title('Distribution des thèmes par périmètre (%)', fontsize=14)
+        plt.title('Distribution des thèmes par PP/Direction CA-TS (%)', fontsize=14)
         plt.xlabel('Thème dominant', fontsize=12)
         plt.ylabel('Pourcentage', fontsize=12)
-        plt.legend(title='Périmètre')
+        plt.legend(title='PP/Direction CA-TS')
         plt.xticks(rotation=0)
         plt.tight_layout()
         plt.show()
@@ -538,8 +533,8 @@ else:
         # Affichage de quelques exemples
         for idx, row in theme_docs.sample(min(3, len(theme_docs))).iterrows():
             print(f"Ligne {row['ligne_source']} - Humeur: {row['Humeur']}")
-            if 'Perimetre' in row:
-                print(f"Périmètre: {row['Perimetre']}")
+            if 'PP/Direction CA-TS' in row:
+                print(f"PP/Direction CA-TS: {row['PP/Direction CA-TS']}")
             print(f"Verbatim: {row['Verbatim']}")
             print("-" * 80)
             
@@ -605,106 +600,3 @@ if 'dominant_topic' in df_negatif_topics.columns:
     theme_summary = pd.DataFrame()
     
     for theme_id in sorted(df_negatif_topics['dominant_topic'].unique()):
-        theme_docs = df_negatif_topics[df_negatif_topics['dominant_topic'] == theme_id]
-        
-        # Top mots-clés pour ce thème
-        theme_key_words = topics[f"Thème {theme_id}"]
-        
-        # Exemples de verbatims pour ce thème
-        verbatim_examples = theme_docs['Verbatim'].sample(min(3, len(theme_docs))).tolist()
-        
-        # Statistiques par périmètre
-        perimetre_counts = theme_docs['Perimetre'].value_counts().to_dict()
-        top_perimetre = max(perimetre_counts.items(), key=lambda x: x[1])[0] if perimetre_counts else "N/A"
-        
-        # Informations sur les lignes sources
-        lignes_sources = theme_docs['ligne_source'].tolist()
-        
-        # Construire l'entrée pour ce thème
-        theme_entry = {
-            'Thème ID': theme_id,
-            'Mots-clés': theme_key_words,
-            'Nombre de verbatims': len(theme_docs),
-            'Périmètre principal': top_perimetre,
-            'Exemples de verbatims': verbatim_examples,
-            'Numéros de lignes sources': lignes_sources
-        }
-        
-        # Ajouter à notre résumé
-        theme_summary = pd.concat([theme_summary, pd.DataFrame([theme_entry])], ignore_index=True)
-    
-    # Sauvegarde du tableau de bord dans un fichier Excel
-    dashboard_file = 'dashboard_problematiques_recurrentes.xlsx'
-    theme_summary.to_excel(dashboard_file, index=False)
-    print(f"\nTableau de bord des problématiques récurrentes sauvegardé dans '{dashboard_file}'")
-    
-    # Affichage du tableau de bord
-    print("\nTableau de bord des problématiques récurrentes :")
-    print(theme_summary[['Thème ID', 'Mots-clés', 'Nombre de verbatims', 'Périmètre principal']])
-    
-    # Pour chaque thème, afficher les exemples et les lignes sources
-    for idx, row in theme_summary.iterrows():
-        print(f"\nThème {int(row['Thème ID'])} - {row['Mots-clés']}")
-        print(f"Périmètre principal: {row['Périmètre principal']}")
-        print("Exemples de verbatims:")
-        for i, example in enumerate(row['Exemples de verbatims'], 1):
-            print(f"  {i}. {example}")
-        print(f"Lignes sources: {', '.join(map(str, row['Numéros de lignes sources'][:10]))}{'...' if len(row['Numéros de lignes sources']) > 10 else ''}")
-else:
-    print("La modélisation thématique n'a pas été effectuée. Impossible de créer le tableau de bord.")
-    
-    
-
-# 8. Fonction pour rechercher des verbatims par mots-clés
-
-
-# Fonction pour rechercher des verbatims contenant certains mots-clés
-def search_verbatims(dataframe, keywords, humeur_filter=None):
-    """
-    Recherche des verbatims contenant des mots-clés spécifiques.
-    
-    Args:
-        dataframe: Le DataFrame contenant les données
-        keywords: Liste de mots-clés à rechercher
-        humeur_filter: Liste des humeurs à filtrer (None pour toutes)
-    
-    Returns:
-        DataFrame contenant les verbatims correspondants
-    """
-    # Application du filtre d'humeur si spécifié
-    if humeur_filter:
-        df_filtered = dataframe[dataframe['Humeur'].isin(humeur_filter)]
-    else:
-        df_filtered = dataframe.copy()
-    
-    # Création d'une expression régulière pour la recherche
-    pattern = '|'.join(keywords)
-    
-    # Recherche dans les verbatims
-    mask = df_filtered['Verbatim'].str.contains(pattern, case=False, na=False, regex=True)
-    results = df_filtered[mask].copy()
-    
-    return results
-
-# Exemple d'utilisation de la fonction de recherche
-keywords_exemple = ['communication', 'délai', 'support']
-humeurs_negatives = ['Plutôt Insatisfaite', 'Très insatisfaite']
-
-resultats_recherche = search_verbatims(df, keywords_exemple, humeurs_negatives)
-
-print(f"\nRésultats de la recherche pour les mots-clés {keywords_exemple} dans les avis négatifs:")
-print(f"Nombre de résultats: {len(resultats_recherche)}")
-
-if len(resultats_recherche) > 0:
-    print("\nExemples de verbatims trouvés:")
-    for idx, row in resultats_recherche.head(5).iterrows():
-        print(f"Ligne {row['ligne_source']} - {row['Humeur']}: {row['Verbatim']}")
-        print(f"  Périmètre: {row['Perimetre']} - {row['Sous perimetre']}")
-        print(f"  Collaborateur: {row['Collaborateur qui a emis']}")
-        print()
-        
-        
-
-
-    
-    
