@@ -1,67 +1,36 @@
-Pour lancer votre application Streamlit, suivez ces étapes simples :
 
-1. **Assurez-vous d'avoir installé Streamlit et toutes les dépendances nécessaires** :
-   ```bash
-   pip install streamlit pandas numpy matplotlib seaborn wordcloud scikit-learn scipy plotly
-   ```
+Avec cette précision supplémentaire, je dois modifier les formules pour que les valeurs dans la colonne "Décommissionnements" soient négatives. C'est un ajustement simple.
 
-2. **Complétez le fichier streamlit.py** (il semble que le code fourni soit incomplet à la fin - il manque la partie `main()` et l'exécution de l'application). Ajoutez ces lignes à la fin du fichier :
-   ```python
-   # Page principale de l'application
-   def main():
-       st.markdown('<h1 class="main-header">📊 Analyse des Enquêtes de Satisfaction</h1>', unsafe_allow_html=True)
-       
-       st.markdown("""
-       <div class="highlight">
-       Cette application permet d'analyser les enquêtes de satisfaction, avec un focus particulier sur l'identification
-       des problématiques récurrentes dans les retours négatifs. Utilisez le formulaire ci-dessous pour télécharger
-       votre fichier Excel d'enquêtes et commencer l'analyse.
-       </div>
-       """, unsafe_allow_html=True)
-       
-       # Section d'upload de fichier
-       st.markdown('<div class="sub-header">Téléchargement des données</div>', unsafe_allow_html=True)
-       
-       uploaded_file = st.file_uploader("Choisissez un fichier Excel (.xlsx)", type="xlsx")
-       
-       if uploaded_file is not None:
-           try:
-               # Lecture du fichier Excel
-               df = pd.read_excel(uploaded_file)
-               
-               # Ajout de l'index ligne_source
-               df['ligne_source'] = df.index
-               
-               # Lancement de l'analyse
-               analyze_data(df)
-               
-           except Exception as e:
-               st.error(f"Une erreur est survenue lors du traitement du fichier : {e}")
-       
-       else:
-           st.info("Veuillez télécharger un fichier Excel pour commencer l'analyse.")
-       
-       # Footer
-       st.markdown('<div class="footer">Développé pour l\'analyse des enquêtes de satisfaction © 2025</div>', unsafe_allow_html=True)
+Pour la méthode DAX, il faut multiplier le compte par -1:
+- Dans la formule SUMMARIZECOLUMNS, je vais modifier la partie qui calcule les décommissionnements
 
+Pour la méthode Power Query:
+- Après l'étape de regroupement, nous pouvons ajouter une étape pour transformer les valeurs de la colonne Décommissionnements en les multipliant par -1
 
-   if __name__ == "__main__":
-       main()
-   ```
+Pas de problème ! Il est facile d'ajuster les valeurs des décommissionnements pour qu'elles soient négatives.
 
-3. **Lancez l'application** à partir de votre terminal :
-   ```bash
-   streamlit run streamlit.py
-   ```
+### Méthode 1: Table calculée avec DAX (ajustée)
 
-4. **Accédez à l'application** - Streamlit va automatiquement ouvrir votre navigateur avec l'application à l'adresse : http://localhost:8501
+```
+srv_mouvement_vrai = 
+SUMMARIZECOLUMNS(
+    srv_mouvement[modele_os],
+    "Constructions", CALCULATE(COUNTROWS(srv_mouvement), srv_mouvement[status_mouvement] = "Construit"),
+    "Décommissionnements", -1 * CALCULATE(COUNTROWS(srv_mouvement), srv_mouvement[status_mouvement] = "Décommissionné")
+)
+```
 
-L'application vous permettra de :
-- Télécharger votre fichier Excel d'enquêtes de satisfaction
-- Visualiser les données générales
-- Analyser les retours négatifs
-- Explorer les verbatims avec des visualisations
-- Identifier les thèmes récurrents via modélisation thématique
-- Télécharger un tableau de bord des problématiques
+J'ai simplement multiplié par -1 le calcul pour la colonne "Décommissionnements".
 
-Si vous rencontrez des erreurs spécifiques, n'hésitez pas à me les partager pour que je puisse vous aider à les résoudre.
+### Méthode 2: Power Query (ajustée)
+
+1. Suivez les étapes précédentes pour créer le regroupement
+2. Après avoir créé votre regroupement:
+   - Cliquez sur l'engrenage de transformation à côté de la colonne "Décommissionnements"
+   - Modifiez la formule pour ajouter une multiplication par -1:
+     ```
+     = Table.TransformColumns(PrécédenteÉtape, {{"Décommissionnements", each _ * -1, Int64.Type}})
+     ```
+   - Ou plus simplement, sélectionnez la colonne "Décommissionnements" après regroupement → clic droit → "Transformer" → "Multiplier par" → saisissez -1
+
+Les valeurs négatives vous aideront probablement à créer des visualisations comme des graphiques à barres empilées positives/négatives, ce qui est très efficace pour ce type de données.
