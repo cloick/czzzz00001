@@ -1,66 +1,94 @@
-Le problème peut venir de plusieurs facteurs. Essayons une approche plus simple et directe pour diagnostiquer le problème :
+
+L'utilisateur veut une mesure qui :
+1. Pour chaque Appops, compte le nombre unique de NOM_CS qui ont le statut "Terminé"
+2. Retourne la valeur minimale parmi ces comptages
+3. Ne doit pas réagir au segment Appops (donc utiliser REMOVEFILTERS)
+4. Doit éliminer les doublons de NOM_CS
+
+Donc la logique est :
+- Appops A a 3 NOM_CS uniques avec statut "Terminé"
+- Appops B a 5 NOM_CS uniques avec statut "Terminé" 
+- Appops C a 2 NOM_CS uniques avec statut "Terminé"
+- Le minimum serait 2
+
+Je comprends maintenant ! Vous voulez connaître quelle Appops a le plus petit nombre de NOM_CS uniques avec le statut "Terminé". Voici la formule correcte :
 
 ```
-MinStatutTermine = 
-MINX(
-    VALUES(obso_planifall[Appops]),
-    CALCULATE(
-        DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
-        obso_planifall[statut] = "Terminé",
-        REMOVEFILTERS(obso_planifall[Appops])
+MinValueObso = 
+VAR ComptageParAppops = 
+    SUMMARIZE(
+        REMOVEFILTERS('obso_planifall'),  // Ignore le segment Appops
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "Terminé"
+        )
     )
-)
+RETURN
+    MINX(ComptageParAppops, [NombreNomCSTermine])
 ```
 
+Cette formule :
+1. Ignore les filtres sur Appops avec REMOVEFILTERS
+2. Pour chaque Appops, compte le nombre distinct de NOM_CS avec statut "Terminé"
+3. Retourne la valeur minimale parmi ces comptages
+
+Par exemple :
+- Si Appops A a 3 NOM_CS uniques avec statut "Terminé"
+- Si Appops B a 5 NOM_CS uniques avec statut "Terminé"
+- Si Appops C a 2 NOM_CS uniques avec statut "Terminé"
+- La mesure retournera 2
+  ________
+
+  La personne me demande de fournir les formules DAX pour le maximum et la moyenne, basées sur la même logique que la formule du minimum que j'ai fournie précédemment.
+
+La formule du minimum cherchait le nombre minimal de NOM_CS uniques avec le statut "Terminé" parmi toutes les valeurs d'Appops, tout en ignorant les filtres sur Appops.
+
+Pour le maximum (MaxValueObso), je vais utiliser la même structure mais avec MAXX au lieu de MINX pour trouver l'Appops qui a le plus grand nombre de NOM_CS uniques avec le statut "Terminé".
+
+Pour la moyenne (AvgValueObso), j'utiliserai AVERAGEX au lieu de MINX pour calculer la moyenne du nombre de NOM_CS uniques avec le statut "Terminé" pour toutes les Appops.
+
+Voyons les formules:
+
+Voici les formules pour le maximum et la moyenne suivant la même logique :
+
 ```
-MaxStatutTermine = 
-MAXX(
-    VALUES(obso_planifall[Appops]),
-    CALCULATE(
-        DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
-        obso_planifall[statut] = "Terminé",
-        REMOVEFILTERS(obso_planifall[Appops])
+MaxValueObso = 
+VAR ComptageParAppops = 
+    SUMMARIZE(
+        REMOVEFILTERS('obso_planifall'),  // Ignore le segment Appops
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "Terminé"
+        )
     )
-)
+RETURN
+    MAXX(ComptageParAppops, [NombreNomCSTermine])
 ```
 
 ```
-AvgStatutTermine = 
-AVERAGEX(
-    VALUES(obso_planifall[Appops]),
-    CALCULATE(
-        DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
-        obso_planifall[statut] = "Terminé",
-        REMOVEFILTERS(obso_planifall[Appops])
+AvgValueObso = 
+VAR ComptageParAppops = 
+    SUMMARIZE(
+        REMOVEFILTERS('obso_planifall'),  // Ignore le segment Appops
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "Terminé"
+        )
     )
-)
+RETURN
+    AVERAGEX(ComptageParAppops, [NombreNomCSTermine])
 ```
 
-Si ces mesures renvoient toujours "vide", créez une mesure de test pour vérifier si vos données existent :
+Ces formules suivent exactement la même structure que celle du minimum :
+1. Elles créent une table temporaire qui compte le nombre distinct de NOM_CS avec statut "Terminé" pour chaque Appops
+2. Elles ignorent les filtres sur Appops avec REMOVEFILTERS
+3. Pour le MAX, on retourne la valeur maximale parmi ces comptages
+4. Pour l'AVG, on retourne la moyenne de ces comptages
 
-```
-TestData = 
-COUNTROWS(
-    FILTER(
-        obso_planifall,
-        obso_planifall[statut] = "Terminé"
-    )
-)
-```
-
-Cette mesure vous dira combien de lignes ont le statut "Terminé". Si elle renvoie 0, vérifiez :
-1. L'orthographe exacte du statut (peut-être "Termine" sans accent ?)
-2. La présence d'espaces avant ou après "Terminé"
-3. La casse (majuscules/minuscules)
-
-Vous pouvez également tester avec :
-```
-TestValeurs = 
-CONCATENATEX(
-    VALUES(obso_planifall[statut]),
-    obso_planifall[statut],
-    ", "
-)
-```
-
-Cela vous montrera toutes les valeurs uniques dans la colonne statut.
+Ces mesures vous permettront de compléter votre visuel de jauge avec les valeurs appropriées, tout en éliminant les doublons de NOM_CS.
