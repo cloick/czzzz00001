@@ -1,57 +1,66 @@
-Vous avez raison, c'est une erreur de syntaxe. REMOVEFILTERS doit être utilisé dans le contexte CALCULATE et non pas sur la table directement dans SUMMARIZE. Voici les formules corrigées:
+Le problème peut venir de plusieurs facteurs. Essayons une approche plus simple et directe pour diagnostiquer le problème :
 
-**Pour le MINIMUM**:
 ```
 MinStatutTermine = 
-VAR AppopsCount = 
-    SUMMARIZE(
-        obso_planifall,
-        obso_planifall[Appops],
-        "Count", CALCULATE(
-            DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
-            obso_planifall[statut] = "Terminé",
-            REMOVEFILTERS(obso_planifall[Appops]),
-            REMOVEFILTERS()  // Ou spécifiez les colonnes que vous voulez neutraliser
-        )
+MINX(
+    VALUES(obso_planifall[Appops]),
+    CALCULATE(
+        DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
+        obso_planifall[statut] = "Terminé",
+        REMOVEFILTERS(obso_planifall[Appops])
     )
-RETURN
-    MINX(AppopsCount, [Count])
+)
 ```
 
-**Pour le MAXIMUM**:
 ```
 MaxStatutTermine = 
-VAR AppopsCount = 
-    SUMMARIZE(
-        obso_planifall,
-        obso_planifall[Appops],
-        "Count", CALCULATE(
-            DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
-            obso_planifall[statut] = "Terminé",
-            REMOVEFILTERS(obso_planifall[Appops]),
-            REMOVEFILTERS()  
-        )
+MAXX(
+    VALUES(obso_planifall[Appops]),
+    CALCULATE(
+        DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
+        obso_planifall[statut] = "Terminé",
+        REMOVEFILTERS(obso_planifall[Appops])
     )
-RETURN
-    MAXX(AppopsCount, [Count])
+)
 ```
 
-**Pour la MOYENNE**:
 ```
 AvgStatutTermine = 
-VAR AppopsCount = 
-    SUMMARIZE(
-        obso_planifall,
-        obso_planifall[Appops],
-        "Count", CALCULATE(
-            DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
-            obso_planifall[statut] = "Terminé",
-            REMOVEFILTERS(obso_planifall[Appops]),
-            REMOVEFILTERS()  
-        )
+AVERAGEX(
+    VALUES(obso_planifall[Appops]),
+    CALCULATE(
+        DISTINCTCOUNTNOBLANK(obso_planifall[NOM_CS]),
+        obso_planifall[statut] = "Terminé",
+        REMOVEFILTERS(obso_planifall[Appops])
     )
-RETURN
-    AVERAGEX(AppopsCount, [Count])
+)
 ```
 
-Le REMOVEFILTERS est maintenant correctement placé à l'intérieur de CALCULATE, ce qui devrait corriger l'erreur de syntaxe.
+Si ces mesures renvoient toujours "vide", créez une mesure de test pour vérifier si vos données existent :
+
+```
+TestData = 
+COUNTROWS(
+    FILTER(
+        obso_planifall,
+        obso_planifall[statut] = "Terminé"
+    )
+)
+```
+
+Cette mesure vous dira combien de lignes ont le statut "Terminé". Si elle renvoie 0, vérifiez :
+1. L'orthographe exacte du statut (peut-être "Termine" sans accent ?)
+2. La présence d'espaces avant ou après "Terminé"
+3. La casse (majuscules/minuscules)
+
+Vous pouvez également tester avec :
+```
+TestValeurs = 
+CONCATENATEX(
+    VALUES(obso_planifall[statut]),
+    obso_planifall[statut],
+    ", "
+)
+```
+
+Cela vous montrera toutes les valeurs uniques dans la colonne statut.
