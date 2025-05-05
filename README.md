@@ -62,3 +62,80 @@ Cette approche est différente car:
 4. Pour le MIN, filtre pour exclure les zéros (qui pourraient fausser le résultat)
 
 Si ces mesures ne fonctionnent toujours pas correctement, nous pourrions avoir besoin de regarder plus en détail la structure de vos données.
+
+
+________
+
+Il semble que la mesure fonctionne maintenant, mais elle réagit au segment Appops alors que vous souhaitez qu'elle ne réagisse pas à ce filtre.
+
+Le problème vient probablement de l'utilisation de ALLSELECTED qui préserve certains filtres contextuels. Notre objectif est d'ignorer spécifiquement les filtres sur Appops.
+
+Pour corriger cela, je vais modifier les formules pour utiliser une combinaison de ALL pour obtenir toutes les valeurs d'Appops et placer correctement REMOVEFILTERS dans le CALCULATE.
+
+Voici les formules corrigées:
+
+Je comprends le problème - les mesures réagissent au filtre Appops alors qu'elles ne devraient pas. Voici les formules corrigées:
+
+```
+MinValueObsoTermine = 
+VAR ComptageParAppops = 
+    ADDCOLUMNS(
+        ALL('obso_planifall'[Appops]),
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "Terminé",
+            REMOVEFILTERS('obso_planifall'[Appops])
+        )
+    )
+VAR ResultatsNonNuls = 
+    FILTER(ComptageParAppops, [NombreNomCSTermine] > 0)
+RETURN
+    IF(
+        COUNTROWS(ResultatsNonNuls) > 0,
+        MINX(ResultatsNonNuls, [NombreNomCSTermine]),
+        0
+    )
+```
+
+```
+MaxValueObsoTermine = 
+VAR ComptageParAppops = 
+    ADDCOLUMNS(
+        ALL('obso_planifall'[Appops]),
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "Terminé",
+            REMOVEFILTERS('obso_planifall'[Appops])
+        )
+    )
+RETURN
+    MAXX(ComptageParAppops, [NombreNomCSTermine])
+```
+
+```
+AvgValueObsoTermine = 
+VAR ComptageParAppops = 
+    ADDCOLUMNS(
+        ALL('obso_planifall'[Appops]),
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "Terminé",
+            REMOVEFILTERS('obso_planifall'[Appops])
+        )
+    )
+VAR ResultatsNonNuls = 
+    FILTER(ComptageParAppops, [NombreNomCSTermine] > 0)
+RETURN
+    AVERAGEX(ResultatsNonNuls, [NombreNomCSTermine])
+```
+
+Les changements clés:
+1. Utilisation d'ADDCOLUMNS avec ALL pour obtenir toutes les valeurs d'Appops
+2. Placement correct de REMOVEFILTERS à l'intérieur du CALCULATE
+3. Filtre des valeurs nulles avant d'appliquer MINX et AVERAGEX
+4. Vérification supplémentaire pour MIN pour éviter les erreurs si aucun résultat
+
+Ces mesures devraient maintenant ignorer les filtres sur Appops tout en calculant correctement le minimum, le maximum et la moyenne.
