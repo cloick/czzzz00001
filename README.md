@@ -369,3 +369,117 @@ Cette approche est beaucoup plus directe :
 3. Elle applique ensuite MIN, MAX ou AVERAGE directement sur cette colonne
 
 Si ces mesures réagissent toujours au filtre Appops, nous devrons ajouter ALLSELECTED ou ALL à l'intérieur du SUMMARIZE.
+
+
+33333333333333
+
+L'utilisateur me montre une formule DAX pour une mesure appelée "MinValueObsoTermine" et indique que cette formule fonctionne, mais qu'il manque un REMOVEFILTERS sur la colonne Appops.
+
+Voici la formule telle qu'elle apparaît dans l'image :
+
+```
+MinValueObsoTermine =
+VAR ComptageParAppops =
+    SUMMARIZE(
+        ALLSELECTED('obso_planifall'),
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine",
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé"
+        )
+    )
+RETURN
+    MINX(
+        FILTER(ComptageParAppops, [NombreNomCSTermine] > 0),
+        [NombreNomCSTermine]
+    )
+```
+
+Pour résoudre le problème, je dois ajouter un REMOVEFILTERS sur la colonne Appops. La meilleure façon de le faire est de l'ajouter dans le CALCULATE. Voici ma proposition de correction :
+
+```
+MinValueObsoTermine =
+VAR ComptageParAppops =
+    SUMMARIZE(
+        ALLSELECTED('obso_planifall'),
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine",
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé",
+            REMOVEFILTERS('obso_planifall'[Appops])  // Ajout du REMOVEFILTERS
+        )
+    )
+RETURN
+    MINX(
+        FILTER(ComptageParAppops, [NombreNomCSTermine] > 0),
+        [NombreNomCSTermine]
+    )
+```
+
+Je vais également préparer des formules similaires pour les mesures MaxValueObsoTermine et AvgValueObsoTermine.
+
+Je vois que la formule fonctionne mais qu'il manque le REMOVEFILTERS sur la colonne Appops. Voici les formules corrigées pour les trois mesures :
+
+```
+MinValueObsoTermine = 
+VAR ComptageParAppops =
+    SUMMARIZE(
+        ALLSELECTED('obso_planifall'),
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé",
+            REMOVEFILTERS('obso_planifall'[Appops])  // Ajout du REMOVEFILTERS
+        )
+    )
+RETURN
+    MINX(
+        FILTER(ComptageParAppops, [NombreNomCSTermine] > 0),
+        [NombreNomCSTermine]
+    )
+```
+
+```
+MaxValueObsoTermine = 
+VAR ComptageParAppops =
+    SUMMARIZE(
+        ALLSELECTED('obso_planifall'),
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé",
+            REMOVEFILTERS('obso_planifall'[Appops])  // Ajout du REMOVEFILTERS
+        )
+    )
+RETURN
+    MAXX(ComptageParAppops, [NombreNomCSTermine])
+```
+
+```
+AvgValueObsoTermine = 
+VAR ComptageParAppops =
+    SUMMARIZE(
+        ALLSELECTED('obso_planifall'),
+        'obso_planifall'[Appops],
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé",
+            REMOVEFILTERS('obso_planifall'[Appops])  // Ajout du REMOVEFILTERS
+        )
+    )
+RETURN
+    AVERAGEX(
+        FILTER(ComptageParAppops, [NombreNomCSTermine] > 0),
+        [NombreNomCSTermine]
+    )
+```
+
+Ces formules devraient maintenant correctement :
+1. Ignorer les filtres sur Appops grâce au REMOVEFILTERS
+2. Calculer pour chaque Appops le nombre distinct de NOM_CS avec statut "5 - Terminé"
+3. Retourner respectivement le minimum, maximum et moyenne de ces comptages
