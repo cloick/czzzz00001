@@ -1,72 +1,64 @@
-Je vois un message d'erreur lié à l'utilisation de REMOVEFILTERS dans la mesure MinValueObsoTerminé. L'erreur est claire : "Impossible d'utiliser la fonction REMOVEFILTERS comme expression de table. Elle apparaît uniquement comme filtre dans CALCULATE."
+L'utilisateur m'indique qu'il y a un problème avec les mesures que j'ai fournies pour MinValueObsoTermine et MaxValueObsoTermine. Les deux mesures renvoient la même valeur: 1646.
 
-Le problème vient de la façon dont j'ai utilisé REMOVEFILTERS dans la formule. Dans DAX, REMOVEFILTERS ne peut pas être utilisé directement comme une table dans SUMMARIZE. Corrigeons cela.
+C'est surprenant car les formules sont correctes dans leur structure, mais il y a visiblement un problème de fond.
 
-Au lieu de :
-```
-SUMMARIZE(
-    REMOVEFILTERS('obso_planifall'),  // Problème ici
-    'obso_planifall'[Appops],
-    ...
-)
-```
+Analysons ce qui pourrait causer ce problème:
 
-Nous devons modifier notre approche pour appliquer REMOVEFILTERS correctement dans le contexte de CALCULATE.
+1. Il est possible que toutes les Appops aient exactement le même nombre de NOM_CS avec statut "Terminé" (1646).
 
-Voici la formule corrigée :
+2. Il est possible que le filtre sur le statut "Terminé" ne fonctionne pas correctement.
 
-Je vois le message d'erreur : "Impossible d'utiliser la fonction REMOVEFILTERS comme expression de table. Elle apparaît uniquement comme filtre dans CALCULATE."
+3. Il est possible que DISTINCTCOUNT ne fonctionne pas comme prévu avec cette structure de données.
 
-Le problème vient de la façon dont REMOVEFILTERS est utilisé. Cette fonction ne peut pas être employée directement comme source dans SUMMARIZE.
+4. Il pourrait y avoir un problème avec la façon dont nous utilisons ALL et REMOVEFILTERS.
 
-Voici les formules corrigées pour vos trois mesures :
+Pour résoudre ce problème, je vais proposer une approche différente qui devrait mieux fonctionner. Au lieu d'utiliser ALL sur 'obso_planifall'[Appops], nous allons d'abord identifier toutes les Appops distinctes, puis compter pour chacune:
+
+Je vois que les deux mesures renvoient la même valeur (1646), ce qui indique un problème dans notre approche.
+
+Le problème vient probablement de notre utilisation d'ALL qui pourrait récupérer des valeurs non pertinentes ou d'une mauvaise interaction avec REMOVEFILTERS.
+
+Essayons une approche différente, en utilisant SUMMARIZE pour d'abord compter clairement les NOM_CS distincts par Appops:
 
 ```
 MinValueObsoTermine = 
 VAR ComptageParAppops = 
-    ADDCOLUMNS(
-        ALL('obso_planifall'[Appops]),  // Utilise ALL au lieu de REMOVEFILTERS
+    SUMMARIZE(
+        ALLSELECTED('obso_planifall'),
+        'obso_planifall'[Appops],
         "NombreNomCSTermine", 
         CALCULATE(
             DISTINCTCOUNT('obso_planifall'[NOM_CS]),
-            'obso_planifall'[statut] = "Terminé",
-            REMOVEFILTERS('obso_planifall'[Appops])  // REMOVEFILTERS correctement placé ici
+            'obso_planifall'[statut] = "Terminé"
         )
     )
 RETURN
-    MINX(ComptageParAppops, [NombreNomCSTermine])
+    MINX(
+        FILTER(ComptageParAppops, [NombreNomCSTermine] > 0),
+        [NombreNomCSTermine]
+    )
 ```
 
 ```
 MaxValueObsoTermine = 
 VAR ComptageParAppops = 
-    ADDCOLUMNS(
-        ALL('obso_planifall'[Appops]),
+    SUMMARIZE(
+        ALLSELECTED('obso_planifall'),
+        'obso_planifall'[Appops],
         "NombreNomCSTermine", 
         CALCULATE(
             DISTINCTCOUNT('obso_planifall'[NOM_CS]),
-            'obso_planifall'[statut] = "Terminé",
-            REMOVEFILTERS('obso_planifall'[Appops])
+            'obso_planifall'[statut] = "Terminé"
         )
     )
 RETURN
     MAXX(ComptageParAppops, [NombreNomCSTermine])
 ```
 
-```
-AvgValueObsoTermine = 
-VAR ComptageParAppops = 
-    ADDCOLUMNS(
-        ALL('obso_planifall'[Appops]),
-        "NombreNomCSTermine", 
-        CALCULATE(
-            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
-            'obso_planifall'[statut] = "Terminé",
-            REMOVEFILTERS('obso_planifall'[Appops])
-        )
-    )
-RETURN
-    AVERAGEX(ComptageParAppops, [NombreNomCSTermine])
-```
+Cette approche est différente car:
+1. Utilise ALLSELECTED au lieu d'ALL pour préserver certains filtres contextuels
+2. Utilise SUMMARIZE directement sur la table complète
+3. Simplifie la structure globale
+4. Pour le MIN, filtre pour exclure les zéros (qui pourraient fausser le résultat)
 
-Le changement clé est d'utiliser ALL() pour obtenir toutes les valeurs d'Appops, puis d'appliquer REMOVEFILTERS à l'intérieur du CALCULATE où il est correctement supporté.
+Si ces mesures ne fonctionnent toujours pas correctement, nous pourrions avoir besoin de regarder plus en détail la structure de vos données.
