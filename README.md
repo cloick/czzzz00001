@@ -44,3 +44,89 @@ RETURN
 ```
 
 Cette formule utilise la technique EARLIER avec FILTER(ALL()) qui fonctionne bien dans votre premier exemple. Elle devrait ignorer les filtres Appops tout en comptant correctement le nombre distinct de NOM_CS par Appops.
+
+
+____________
+
+Super ! Le code a fonctionné. Maintenant, je vais fournir les formules pour le maximum, la moyenne et la valeur cible en utilisant la même approche qui a fonctionné pour le minimum.
+
+Pour le maximum (MaxValueObsoTermine):
+- Même approche que le minimum mais avec MAXX au lieu de MINX
+- Nous comptons toujours les NOM_CS distincts avec statut "5 - Terminé"
+- Nous ignorons les filtres sur Appops
+
+Pour la moyenne (AvgValueObsoTermine):
+- Même approche mais avec AVERAGEX
+- Nous filtrons également pour exclure les valeurs nulles avant de calculer la moyenne
+
+Pour la valeur cible (TargetValueObsoTermine):
+- Cette mesure devrait réagir au filtre Appops
+- Nous ne voulons pas ignorer les filtres Appops
+- Nous comptons le nombre de NOM_CS distincts avec statut "5 - Terminé"
+
+Excellent ! Je suis ravi que ça fonctionne. Voici les formules pour le maximum, la moyenne et la valeur cible en utilisant le même modèle qui a fonctionné :
+
+```
+MaxValueObsoTermine = 
+VAR AllAppops = ALL('obso_planifall'[Appops])
+VAR ComptageParAppops = 
+    ADDCOLUMNS(
+        AllAppops,
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé",
+            FILTER(
+                ALL('obso_planifall'),
+                'obso_planifall'[Appops] = EARLIER('obso_planifall'[Appops])
+            )
+        )
+    )
+RETURN
+    MAXX(ComptageParAppops, [NombreNomCSTermine])
+```
+
+```
+AvgValueObsoTermine = 
+VAR AllAppops = ALL('obso_planifall'[Appops])
+VAR ComptageParAppops = 
+    ADDCOLUMNS(
+        AllAppops,
+        "NombreNomCSTermine", 
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé",
+            FILTER(
+                ALL('obso_planifall'),
+                'obso_planifall'[Appops] = EARLIER('obso_planifall'[Appops])
+            )
+        )
+    )
+RETURN
+    AVERAGEX(
+        FILTER(ComptageParAppops, [NombreNomCSTermine] > 0),
+        [NombreNomCSTermine]
+    )
+```
+
+```
+TargetValueObsoTermine = 
+VAR SelectedAppops = SELECTEDVALUE('obso_planifall'[Appops], "")
+RETURN
+    IF(
+        SelectedAppops <> "",
+        CALCULATE(
+            DISTINCTCOUNT('obso_planifall'[NOM_CS]),
+            'obso_planifall'[statut] = "5 - Terminé",
+            'obso_planifall'[Appops] = SelectedAppops
+        ),
+        0
+    )
+```
+
+Les mesures MAX et AVG utilisent exactement la même approche que le MIN qui fonctionne, mais avec des fonctions d'agrégation différentes.
+
+Pour la TargetValue, la formule est différente car elle doit réagir au filtre Appops. Elle :
+1. Capture l'Appops sélectionnée avec SELECTEDVALUE
+2. Si une Appops est sélectionnée, compte le nombre distinct de NOM_CS avec statut "5 - Terminé" pour cette Appops
+3. Retourne 0 si aucune Appops n'est sélectionnée
