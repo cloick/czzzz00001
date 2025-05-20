@@ -1,77 +1,71 @@
-Je comprends maintenant le problème. Les erreurs que vous avez rencontrées sont liées à certaines syntaxes que j'ai utilisées qui ne sont pas compatibles avec votre version de Power BI. Merci pour les exemples partagés qui sont très instructifs !
+Effectivement, 88% est assez éloigné de 94.3%. Cette différence peut s'expliquer de plusieurs façons :
 
-Je remarque que dans votre deuxième image, vous utilisez `REMOVEFILTERS` et `TREATAS` combinés de manière efficace, et dans la première image, vous utilisez `ALL` avec `ADDCOLUMNS` suivi d'un `AVERAGEX`. Ce sont d'excellentes approches.
+1. **Méthode de calcul différente** : La mesure pourrait calculer d'abord les moyennes des numérateurs et dénominateurs séparément, puis faire la division (ce qui donne un résultat différent que de calculer chaque ratio puis d'en faire la moyenne).
 
-Voici une mesure adaptée à votre syntaxe, inspirée des exemples que vous m'avez partagés :
+2. **Données incluses** : Il pourrait y avoir des Appops supplémentaires qui sont incluses dans le calcul automatique mais pas dans votre calcul manuel.
+
+3. **Filtrage des données** : Certaines conditions de filtre dans la mesure pourraient exclure ou inclure des enregistrements que vous n'avez pas considérés.
+
+Voici une mesure révisée qui devrait calculer exactement la moyenne des pourcentages individuels :
 
 ```
-MoyenneTauxLiaisonGlobale = 
+MoyenneTauxLiaisonCorrigee = 
 VAR DerniereDate = MAX('v_stat_kpi'[dat])
-VAR CurrentLibelleFilter = VALUES('v_stat_kpi'[Libellé])
 
-// Calcul pour la moyenne des Appops
+// Table temporaire avec les taux pour chaque Appops
+VAR TauxParAppops = 
+    ADDCOLUMNS(
+        ALL('Appops_'[Appops]),
+        "Appops", 'Appops_'[Appops],
+        "TauxIndividuel", 
+            VAR Num = CALCULATE(
+                VALUES('v_stat_kpi'[val]),
+                'v_stat_kpi'[dat] = DerniereDate,
+                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
+                'Appops_'[Appops] = EARLIER('Appops_'[Appops])
+            )
+            VAR Denom = CALCULATE(
+                VALUES('v_stat_kpi'[val]),
+                'v_stat_kpi'[dat] = DerniereDate,
+                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
+                'Appops_'[Appops] = EARLIER('Appops_'[Appops])
+            )
+            RETURN DIVIDE(Num, Denom, 0)
+    )
+
+// Filtrer pour ne garder que les Appops avec des valeurs valides
+VAR TauxFiltres = 
+    FILTER(TauxParAppops, [TauxIndividuel] > 0)
+
+// Débogage - afficher les valeurs individuelles (à retirer après)
+// VAR Debug = CONCATENATEX(TauxFiltres, [Appops] & ": " & FORMAT([TauxIndividuel], "0.0%"), ", ")
+
 RETURN
+    // Debug // Pour déboguer
+    AVERAGE(TauxFiltres[TauxIndividuel])
+```
+
+Pour comprendre d'où vient la différence, il serait utile de vérifier chaque taux individuel par Appops. Vous pourriez temporairement modifier la mesure pour renvoyer le texte de débogage (décommentez la ligne Debug) afin de voir les valeurs exactes utilisées dans le calcul.
+
+Si le problème persiste, une autre approche serait de créer une mesure dédiée pour chaque Appops, puis de faire la moyenne manuellement, pour confirmer les valeurs individuelles :
+
+```
+TauxAppops1 = 
 DIVIDE(
-    // Moyenne des valeurs pour "chaine de liaison"
     CALCULATE(
-        AVERAGE('v_stat_kpi'[val]),
+        VALUES('v_stat_kpi'[val]),
+        'v_stat_kpi'[dat] = MAX('v_stat_kpi'[dat]),
         'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
-        'v_stat_kpi'[Libellé] <> "Non pris",
-        'v_stat_kpi'[Appops] <> "Non pris",
-        'v_stat_kpi'[dat] = DerniereDate,
-        REMOVEFILTERS('Appops_'[Appops])
+        'Appops_'[Appops] = "Appops1" // Remplacer par le nom réel
     ),
-    
-    // Moyenne des valeurs pour "au moins une IDD"
     CALCULATE(
-        AVERAGE('v_stat_kpi'[val]),
+        VALUES('v_stat_kpi'[val]),
+        'v_stat_kpi'[dat] = MAX('v_stat_kpi'[dat]),
         'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
-        'v_stat_kpi'[Libellé] <> "Non pris",
-        'v_stat_kpi'[Appops] <> "Non pris",
-        'v_stat_kpi'[dat] = DerniereDate,
-        REMOVEFILTERS('Appops_'[Appops])
+        'Appops_'[Appops] = "Appops1" // Remplacer par le nom réel
     ),
     0
 )
 ```
 
-Alternativement, en s'inspirant plus directement de votre premier exemple avec ADDCOLUMNS et AVERAGEX :
-
-```
-MoyenneTauxLiaisonGlobale = 
-VAR DerniereDate = MAX('v_stat_kpi'[dat])
-
-// Calcul pour tous les Appops
-VAR AppsCount = 
-    ADDCOLUMNS(
-        ALL('Appops_'[Appops]),
-        "Numerateur", 
-            CALCULATE(
-                VALUES('v_stat_kpi'[val]),
-                'v_stat_kpi'[dat] = DerniereDate,
-                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
-                TREATAS(VALUES('Appops_'[Appops]), 'Appops_'[Appops])
-            ),
-        "Denominateur", 
-            CALCULATE(
-                VALUES('v_stat_kpi'[val]),
-                'v_stat_kpi'[dat] = DerniereDate,
-                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
-                TREATAS(VALUES('Appops_'[Appops]), 'Appops_'[Appops])
-            )
-    )
-
-// Filtrer pour éviter les divisions par zéro
-VAR AppsWithNonZeroDenominators = 
-    FILTER(AppsCount, [Denominateur] > 0)
-
-RETURN
-    AVERAGEX(AppsWithNonZeroDenominators, DIVIDE([Numerateur], [Denominateur], 0))
-```
-
-Ces deux approches devraient :
-1. Ignorer le filtre actuel sur Appops grâce à REMOVEFILTERS ou ALL
-2. Calculer soit la moyenne directe des taux, soit calculer le taux pour chaque Appops puis en faire la moyenne
-3. Ne pas être affectées par les sélections d'Appops sur la page
-
-Essayez ces formules et voyez laquelle fonctionne le mieux dans votre contexte. Elles sont plus proches de la syntaxe utilisée dans vos exemples.
+Puis répéter pour chaque Appops, et vérifier si les valeurs correspondent à celles que vous avez listées.
