@@ -1,76 +1,77 @@
-Je vous prie de m'excuser pour cette erreur. Vous avez raison, la mesure réagit encore aux filtres. Pour créer une mesure qui ignore complètement les filtres de contexte et renvoie toujours la même moyenne globale, quelle que soit la sélection, voici une meilleure approche :
+Je comprends maintenant le problème. Les erreurs que vous avez rencontrées sont liées à certaines syntaxes que j'ai utilisées qui ne sont pas compatibles avec votre version de Power BI. Merci pour les exemples partagés qui sont très instructifs !
+
+Je remarque que dans votre deuxième image, vous utilisez `REMOVEFILTERS` et `TREATAS` combinés de manière efficace, et dans la première image, vous utilisez `ALL` avec `ADDCOLUMNS` suivi d'un `AVERAGEX`. Ce sont d'excellentes approches.
+
+Voici une mesure adaptée à votre syntaxe, inspirée des exemples que vous m'avez partagés :
 
 ```
-MoyenneTauxLiaisonFixe = 
-CALCULATE(
-    // Corps principal du calcul
-    VAR DerniereDate = MAX(ALL('v_stat_kpi'[dat])) // Date la plus récente, sans filtre
-    RETURN
-    AVERAGEX(
-        VALUES(ALL(Appops_[Appops])), // Parcours de toutes les Appops, sans filtre
-        VAR AppopsCourante = Appops_[Appops]
-        VAR Numerateur = 
-            CALCULATE(
-                VALUES('v_stat_kpi'[val]),
-                ALL(), // Supprimer tous les filtres
-                'v_stat_kpi'[dat] = DerniereDate,
-                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
-                Appops_[Appops] = AppopsCourante
-            )
-        VAR Denominateur = 
-            CALCULATE(
-                VALUES('v_stat_kpi'[val]),
-                ALL(), // Supprimer tous les filtres
-                'v_stat_kpi'[dat] = DerniereDate,
-                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
-                Appops_[Appops] = AppopsCourante
-            )
-        RETURN
-            DIVIDE(Numerateur, Denominateur, 0)
+MoyenneTauxLiaisonGlobale = 
+VAR DerniereDate = MAX('v_stat_kpi'[dat])
+VAR CurrentLibelleFilter = VALUES('v_stat_kpi'[Libellé])
+
+// Calcul pour la moyenne des Appops
+RETURN
+DIVIDE(
+    // Moyenne des valeurs pour "chaine de liaison"
+    CALCULATE(
+        AVERAGE('v_stat_kpi'[val]),
+        'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
+        'v_stat_kpi'[Libellé] <> "Non pris",
+        'v_stat_kpi'[Appops] <> "Non pris",
+        'v_stat_kpi'[dat] = DerniereDate,
+        REMOVEFILTERS('Appops_'[Appops])
     ),
-    ALL() // Cette fonction supprime TOUS les filtres de contexte
+    
+    // Moyenne des valeurs pour "au moins une IDD"
+    CALCULATE(
+        AVERAGE('v_stat_kpi'[val]),
+        'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
+        'v_stat_kpi'[Libellé] <> "Non pris",
+        'v_stat_kpi'[Appops] <> "Non pris",
+        'v_stat_kpi'[dat] = DerniereDate,
+        REMOVEFILTERS('Appops_'[Appops])
+    ),
+    0
 )
 ```
 
-L'utilisation de `ALL()` comme modificateur de contexte dans le CALCULATE extérieur garantit que tous les filtres sont supprimés. Cela assure que la mesure ne réagira pas aux sélections sur la page.
-
-Si cette approche ne fonctionne toujours pas, une autre méthode plus directe serait :
+Alternativement, en s'inspirant plus directement de votre premier exemple avec ADDCOLUMNS et AVERAGEX :
 
 ```
-MoyenneTauxLiaisonFixe = 
-VAR DerniereDate = CALCULATE(MAX('v_stat_kpi'[dat]), ALL('v_stat_kpi'))
+MoyenneTauxLiaisonGlobale = 
+VAR DerniereDate = MAX('v_stat_kpi'[dat])
 
-// Créer une table temporaire de toutes les Appops
-VAR ToutesLesAppops = 
+// Calcul pour tous les Appops
+VAR AppsCount = 
     ADDCOLUMNS(
-        ALL(Appops_[Appops]),
+        ALL('Appops_'[Appops]),
         "Numerateur", 
             CALCULATE(
                 VALUES('v_stat_kpi'[val]),
-                ALL(),
                 'v_stat_kpi'[dat] = DerniereDate,
                 'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
-                Appops_[Appops] = Appops_[Appops]
+                TREATAS(VALUES('Appops_'[Appops]), 'Appops_'[Appops])
             ),
         "Denominateur", 
             CALCULATE(
                 VALUES('v_stat_kpi'[val]),
-                ALL(),
                 'v_stat_kpi'[dat] = DerniereDate,
                 'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
-                Appops_[Appops] = Appops_[Appops]
+                TREATAS(VALUES('Appops_'[Appops]), 'Appops_'[Appops])
             )
     )
 
-// Calculer la moyenne des ratios, en ignorant les divisions par zéro
-VAR MoyenneRatios = 
-    AVERAGEX(
-        FILTER(ToutesLesAppops, [Denominateur] > 0),
-        DIVIDE([Numerateur], [Denominateur], 0)
-    )
+// Filtrer pour éviter les divisions par zéro
+VAR AppsWithNonZeroDenominators = 
+    FILTER(AppsCount, [Denominateur] > 0)
 
 RETURN
-    MoyenneRatios
+    AVERAGEX(AppsWithNonZeroDenominators, DIVIDE([Numerateur], [Denominateur], 0))
 ```
 
-Cette seconde approche est peut-être plus claire et devrait ignorer complètement tous les filtres de contexte. De plus, elle filtre les cas où le dénominateur serait zéro pour éviter de fausser la moyenne.
+Ces deux approches devraient :
+1. Ignorer le filtre actuel sur Appops grâce à REMOVEFILTERS ou ALL
+2. Calculer soit la moyenne directe des taux, soit calculer le taux pour chaque Appops puis en faire la moyenne
+3. Ne pas être affectées par les sélections d'Appops sur la page
+
+Essayez ces formules et voyez laquelle fonctionne le mieux dans votre contexte. Elles sont plus proches de la syntaxe utilisée dans vos exemples.
