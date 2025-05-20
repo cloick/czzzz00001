@@ -1,1 +1,72 @@
-Alors je reviens donc sur la partie thématique et problématique que on l'en veut vous demander de travailler puisque c'est vraiment le coeur de l'exercice cette partie là. Il faut qu'elle soit absolument validée c'est à dire que on veut pas vous. On veut que finalement votre travail soit un travail réussi. C'est à dire que on veut pas se trouver dans une impasse en disant et bien monsieur ou madame X un produit un travail hors sujet et ça on souhaite peindre. On ne souhaite pas mettre un zéro donc le jour d'un rapport de fin d'études donc c'est pas l'objectif donc l'idée c'est qu'on construise ensemble quand je dis. On sait aussi bien donc votre maître d'apprentissage que que vous bien sûr et puis nous école en qualité donc du référent école dans l'enseignant référent qui vous est affecté. Donc ce travail là vous allez avoir donc à nous proposer un certain nombre donc de sujets alors vous en avez peut-être déjà en tête ou en tout cas vous avez peut-être déjà des pistes de sujets mais on va arriver donc dans une période où il est important maintenant de se rencontrer d'échanger de façon à ce qu'on puisse valider ensemble votre votre travail. Alors donc chacun connaît donc son référent et donc il va falloir prendre contact avec son référent de façon à proposer un certain nombre de thématiques de problématiques et à partir de là et bien vous allez en va négocier c'est à dire que vous allez nous proposer. Essayer nous convaincre que votre thématique elle est plutôt adaptée et répondre donc aux exigences de l'école. Vous avez aussi nous convaincre que que la structure que vous donnez à votre argumentaire est correct. C'est à dire qu'il va falloir nous fournir un pseudo-plan ou en tout cas des grandes lignes pour qu'on puisse valider et une fois que vous qu'on sera d'accord sur l'architecture de votre de votre travail et bien vous pourrez commencer à éventuellement rédiger si vous le souhaitez et vous voyez donc on est dans un bois dans une phase donc de validation de votre sujet et ensuite vous pouvez vous pouvez travailler vraiment concrètement sur le sujet alors parfois c'est pour ça que j'ai positionné aussi dans la boucle votre maître d'apprentissage parce que. 
+Je comprends parfaitement votre besoin ! Vous souhaitez créer une mesure qui calcule la moyenne globale de ce pourcentage pour toutes les Appops, et cette mesure doit ignorer les filtres de contexte (notamment les filtres sur Appops) pour toujours afficher la moyenne générale.
+
+Pour cela, nous allons utiliser les fonctions ALLSELECTED ou ALL pour supprimer les filtres de contexte. Voici la mesure que je vous propose :
+
+```
+MoyenneTauxLiaisonToutes = 
+VAR DerniereDate = MAX('v_stat_kpi'[dat])
+RETURN
+AVERAGEX(
+    ALL(Appops_[Appops]), // Ignorer tous les filtres sur Appops
+    DIVIDE(
+        // Numérateur - Solutions avec chaîne de liaison
+        CALCULATE(
+            VALUES('v_stat_kpi'[val]),
+            'v_stat_kpi'[dat] = DerniereDate,
+            'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
+            TREATAS(VALUES(Appops_[Appops]), Appops_[Appops]) // Pour chaque Appops
+        ),
+        
+        // Dénominateur - Solutions avec au moins une IDD
+        CALCULATE(
+            VALUES('v_stat_kpi'[val]),
+            'v_stat_kpi'[dat] = DerniereDate,
+            'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
+            TREATAS(VALUES(Appops_[Appops]), Appops_[Appops]) // Pour chaque Appops
+        ),
+        0 // Valeur par défaut si division par zéro
+    )
+)
+```
+
+Et si vous voulez également que cette mesure ignore tous les filtres de la page (pas seulement les filtres sur Appops), vous pouvez utiliser la fonction CALCULATE avec ALLSELECTED :
+
+```
+MoyenneTauxLiaisonToutes = 
+CALCULATE(
+    VAR DerniereDate = MAX('v_stat_kpi'[dat])
+    RETURN
+    AVERAGEX(
+        ALL(Appops_[Appops]), // Parcourir toutes les Appops
+        DIVIDE(
+            // Numérateur - Solutions avec chaîne de liaison
+            CALCULATE(
+                VALUES('v_stat_kpi'[val]),
+                'v_stat_kpi'[dat] = DerniereDate,
+                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec une chaine de liaison",
+                Appops_[Appops] = Appops_[Appops] // Pour chaque Appops en cours d'itération
+            ),
+            
+            // Dénominateur - Solutions avec au moins une IDD
+            CALCULATE(
+                VALUES('v_stat_kpi'[val]),
+                'v_stat_kpi'[dat] = DerniereDate,
+                'v_stat_kpi'[Libellé] = "Nombre de solutions matière OPEN avec au moins une IDD",
+                Appops_[Appops] = Appops_[Appops] // Pour chaque Appops en cours d'itération
+            ),
+            0 // Valeur par défaut si division par zéro
+        )
+    ),
+    ALLSELECTED() // Ignorer tous les filtres de contexte
+)
+```
+
+Cette mesure va :
+1. Ignorer tous les filtres actuels grâce à ALLSELECTED()
+2. Parcourir toutes les valeurs distinctes de Appops_[Appops]
+3. Pour chaque Appops, calculer le taux entre les deux mesures
+4. Faire la moyenne de tous ces taux
+
+N'oubliez pas de formater cette mesure en pourcentage dans les propriétés de formatage.
+
+Est-ce que cette approche correspond à ce que vous cherchez ?
