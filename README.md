@@ -1,73 +1,44 @@
-L'utilisateur veut créer une mesure qui va compter le nombre de serveurs (metis_srv_name) qui sont dans plusieurs Appops différents. En gros, il veut compter les serveurs qui sont "partagés" entre plusieurs groupes Appops.
+L'utilisateur me demande comment créer une colonne dans Power Query (Power BI) qui aura la valeur "oui" ou "non" selon une autre colonne. La logique est :
+- Si la colonne contient au moins un point-virgule (;), alors "oui"
+- Sinon "non"
 
-Je pense qu'il veut dire : pour un Appops donné (sélectionné dans un filtre ou un visuel), combien de serveurs de cet Appops sont aussi présents dans d'autres groupes Appops.
+En Power Query, on peut utiliser la fonction Text.Contains() pour vérifier si un texte contient un caractère spécifique, ou bien Text.PositionOf() pour trouver la position d'un caractère.
 
-Donc la logique serait :
-1. Prendre tous les serveurs de l'Appops actuellement sélectionné
-2. Compter combien de ces serveurs apparaissent aussi dans d'autres groupes Appops
+Je vais proposer plusieurs approches :
+1. Avec Text.Contains()
+2. Avec une colonne personnalisée
+3. Avec une formule conditionnelle
 
-Je vais créer une mesure DAX pour cela.
+C'est une question technique simple et je n'ai pas besoin de faire de recherche web car Power Query est une technologie stable et bien documentée.
 
-Voici la mesure DAX pour compter les serveurs qui sont dans l'Appops sélectionné ET qui sont aussi présents dans d'autres Appops :
+Oui, je comprends parfaitement ! Tu veux créer une colonne qui détecte la présence d'au moins un point-virgule dans une autre colonne.
 
-Serveurs dans autres Appops = 
-VAR ServeursAppopsActuel = 
-    VALUES(linux[metis_srv_name])
+Voici plusieurs façons de faire cela dans Power Query :
 
-VAR ServeursPartages = 
-    SUMX(
-        ServeursAppopsActuel,
-        VAR ServeurCourant = linux[metis_srv_name]
-        VAR NombreAppopsServeur = 
-            CALCULATE(
-                DISTINCTCOUNT(linux[Appops]),
-                FILTER(
-                    ALL(linux),
-                    linux[metis_srv_name] = ServeurCourant
-                )
-            )
-        RETURN 
-            IF(NombreAppopsServeur > 1, 1, 0)
-    )
+## Méthode 1 : Colonne personnalisée avec Text.Contains()
 
-RETURN ServeursPartages
+1. Dans Power Query, va dans **Ajouter une colonne** > **Colonne personnalisée**
+2. Donne un nom à ta colonne (ex: "Contient_PV")
+3. Utilise cette formule :
 
-J'ai créé une mesure qui fonctionne comme ceci :
-
-1. `ServeursAppopsActuel` récupère tous les serveurs de l'Appops actuellement sélectionné dans le contexte de filtre
-2. Pour chaque serveur de cet Appops, on compte dans combien d'Appops différents il apparaît (en utilisant ALL() pour ignorer le contexte de filtre actuel)
-3. Si un serveur apparaît dans plus d'1 Appops (NombreAppopsServeur > 1), alors on le compte (1), sinon on ne le compte pas (0)
-4. SUMX fait la somme de tous ces 1 et 0, ce qui donne le nombre total de serveurs "partagés"
-
-Cette mesure va donc retourner le nombre de serveurs qui sont dans l'Appops sélectionné ET qui sont aussi dans au moins un autre Appops.
-
-## **Comment fonctionne cette mesure :**
-
-1. **`ServeursAppopsActuel`** : Récupère tous les serveurs de l'Appops actuellement sélectionné dans votre visuel/filtre
-
-2. **Pour chaque serveur**, la mesure :
-   - Compte dans combien d'Appops différents ce serveur apparaît (en ignorant les filtres actuels avec `ALL()`)
-   - Si le serveur apparaît dans **plus d'1 Appops** → on le compte (1)
-   - Sinon → on ne le compte pas (0)
-
-3. **`SUMX`** fait la somme de tous ces 1 et 0
-
-## **Exemple d'utilisation :**
-- Si vous sélectionnez "Crédits" dans un slicer
-- La mesure retournera le nombre de serveurs qui sont dans "Crédits" ET qui sont aussi dans au moins un autre Appops (Data, RH, etc.)
-
-## **Alternative plus simple si vous voulez juste les serveurs en doublon :**
-
-```dax
-Serveurs en doublon = 
-SUMX(
-    VALUES(linux[metis_srv_name]),
-    IF(
-        CALCULATE(DISTINCTCOUNT(linux[Appops]), ALL(linux[Appops])) > 1,
-        1,
-        0
-    )
-)
+```m
+if Text.Contains([NomDeTaColonne], ";") then "oui" else "non"
 ```
 
-Quelle version correspond le mieux à ce que vous voulez ?
+## Méthode 2 : Avec Text.PositionOf()
+
+```m
+if Text.PositionOf([NomDeTaColonne], ";") >= 0 then "oui" else "non"
+```
+
+## Méthode 3 : Plus robuste (gère les valeurs nulles)
+
+```m
+if [NomDeTaColonne] <> null and Text.Contains([NomDeTaColonne], ";") then "oui" else "non"
+```
+
+**Remplace `[NomDeTaColonne]` par le nom exact de ta colonne.**
+
+La première méthode avec `Text.Contains()` est la plus simple et la plus lisible. Elle retournera "oui" dès qu'il y a au moins un point-virgule dans la chaîne, et "non" dans tous les autres cas.
+
+Tu veux que je t'explique une de ces approches plus en détail ?
