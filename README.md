@@ -112,58 +112,37 @@ N'oublie pas de remplacer `[NomDeTaColonne]` par le nom exact de ta colonne !
 
 
 ___________________
+Ah je vois le problème ! L'utilisateur a une table de dimension `Appops_` qui est liée à la table de faits `obso_planifall` par la colonne `Appops`. Quand il utilise un slicer/segment basé sur la table `Appops_`, cela filtre aussi la table `obso_planifall` à travers la relation.
 
-L'utilisateur veut créer une mesure qui calcule la moyenne de tous les pourcentages d'OS obsolètes pour toutes les AppOps, sans être influencée par le filtre du segment AppOps. 
+La mesure que j'ai proposée utilise `ALL(obso_planifall[Appops])` mais comme le filtre vient de la table `Appops_`, il faut ignorer le filtre sur cette table aussi.
 
-Il faut donc :
-1. Calculer le pourcentage d'OS obsolètes pour chaque AppOps
-2. Faire la moyenne de tous ces pourcentages
-3. Ignorer le filtre du segment AppOps
+Il faut utiliser `ALL(Appops_)` ou `ALL(Appops_[Appops])` selon la structure de la table de dimension.
 
-Pour cela, je peux utiliser :
-- AVERAGEX pour calculer la moyenne
-- VALUES(obso_planifall[Appops]) pour itérer sur chaque AppOps
-- ALL(obso_planifall[Appops]) pour ignorer le filtre du segment
-- CALCULATE pour appliquer le contexte de chaque AppOps dans l'itération
+Ah oui, je vois le problème ! Comme votre segment est basé sur la table de dimension `Appops_` et non directement sur `obso_planifall[Appops]`, il faut ignorer le filtre sur la table `Appops_`.
 
-La structure serait quelque chose comme :
-```
-AVERAGEX(
-    ALL(obso_planifall[Appops]),
-    CALCULATE([Serveur_OS])
-)
-```
-
-Cela va :
-1. Ignorer le filtre du segment AppOps avec ALL()
-2. Itérer sur chaque valeur unique d'AppOps
-3. Pour chaque AppOps, calculer la mesure Serveur_OS
-4. Faire la moyenne de tous ces résultats
-
-Parfait ! Vous voulez une mesure qui calcule la **moyenne des pourcentages d'OS obsolètes** pour toutes les AppOps, sans être impactée par le filtre du segment.
-
-Voici la mesure DAX :
+Voici la correction :
 
 ```dax
 Moyenne_Serveur_OS_Toutes_AppOps = 
 AVERAGEX(
-    ALL(obso_planifall[Appops]),
+    ALL(Appops_),
+    [Serveur_OS]
+)
+```
+
+**Ou si vous voulez être plus spécifique :**
+
+```dax
+Moyenne_Serveur_OS_Toutes_AppOps = 
+AVERAGEX(
+    ALL(Appops_[Appops]),
     [Serveur_OS]
 )
 ```
 
 **Explication :**
-- `ALL(obso_planifall[Appops])` : Ignore le filtre du segment AppOps et récupère toutes les valeurs d'AppOps
-- `AVERAGEX()` : Itère sur chaque AppOps et calcule la moyenne
-- `[Serveur_OS]` : Pour chaque AppOps, calcule votre mesure existante
-- Le résultat est la moyenne de tous les pourcentages
+- `ALL(Appops_)` : Ignore complètement le filtre appliqué sur votre table de dimension `Appops_`
+- Cela permet à la mesure de voir toutes les AppOps et de calculer la moyenne globale
+- La relation entre `Appops_` et `obso_planifall` sera toujours respectée, mais sans restriction de filtre
 
-**Exemple :**
-Si vous avez :
-- AppOps A : 20% d'OS obsolètes
-- AppOps B : 40% d'OS obsolètes  
-- AppOps C : 30% d'OS obsolètes
-
-La mesure retournera : (20% + 40% + 30%) / 3 = 30%
-
-Cette mesure restera fixe à 30% peu importe l'AppOps sélectionnée dans votre segment !
+Maintenant votre mesure de moyenne ne bougera plus quand vous sélectionnez une AppOps dans votre segment !
