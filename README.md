@@ -146,3 +146,19 @@ AVERAGEX(
 - La relation entre `Appops_` et `obso_planifall` sera toujours respectée, mais sans restriction de filtre
 
 Maintenant votre mesure de moyenne ne bougera plus quand vous sélectionnez une AppOps dans votre segment !
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+SELECT *
+FROM votre_table_name
+WHERE 
+    -- Filtre 1: Companies contenant CA Technologies, CA CR ou Banque Chalus
+    (
+        dv_u_impacted_companies LIKE '%CA Technologies%' 
+        OR dv_u_impacted_companies LIKE '%CA CR%'
+        OR dv_u_impacted_companies LIKE '%Banque Chalus%'
+    )
+    -- Filtre 2: État Fermé ou Résolu
+    AND dv_state IN ('Fermé', 'Résolu')
+    -- Filtre 3: Master incident vide
+    AND (dv_u_master_incident IS NULL OR dv_u_master_incident = '')
