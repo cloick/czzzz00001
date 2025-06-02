@@ -1,164 +1,181 @@
-L'utilisateur me demande comment créer une colonne dans Power Query (Power BI) qui aura la valeur "oui" ou "non" selon une autre colonne. La logique est :
-- Si la colonne contient au moins un point-virgule (;), alors "oui"
-- Sinon "non"
+Excellent ! Félicitations pour avoir obtenu la licence Dataiku ! Je vais vous guider pas à pas pour implémenter votre projet de classification des tickets METIS sur Dataiku.
 
-En Power Query, on peut utiliser la fonction Text.Contains() pour vérifier si un texte contient un caractère spécifique, ou bien Text.PositionOf() pour trouver la position d'un caractère.
+## 🚀 Guide complet Dataiku pour votre projet
 
-Je vais proposer plusieurs approches :
-1. Avec Text.Contains()
-2. Avec une colonne personnalisée
-3. Avec une formule conditionnelle
+### 1. Premiers pas avec Dataiku
 
-C'est une question technique simple et je n'ai pas besoin de faire de recherche web car Power Query est une technologie stable et bien documentée.
+**Configuration initiale :**
+- Connectez-vous à votre instance Dataiku
+- Créez un nouveau projet : "Classification_Tickets_METIS"
+- Définissez les permissions et partagez avec votre équipe
 
-Oui, je comprends parfaitement ! Tu veux créer une colonne qui détecte la présence d'au moins un point-virgule dans une autre colonne.
+### 2. Import et préparation des données
 
-Voici plusieurs façons de faire cela dans Power Query :
-
-## Méthode 1 : Colonne personnalisée avec Text.Contains()
-
-1. Dans Power Query, va dans **Ajouter une colonne** > **Colonne personnalisée**
-2. Donne un nom à ta colonne (ex: "Contient_PV")
-3. Utilise cette formule :
-
-```m
-if Text.Contains([NomDeTaColonne], ";") then "oui" else "non"
+**Étape 1 : Importer vos datasets**
+```
+1. Cliquez sur "IMPORT DATASET"
+2. Choisissez votre source :
+   - Fichiers CSV : metis_tickets.csv et gdp_tickets.csv
+   - Ou connexion directe à votre base de données
+3. Prévisualisez et validez l'import
 ```
 
-## Méthode 2 : Avec Text.PositionOf()
+**Étape 2 : Préparer les données**
+- Utilisez un recipe "Prepare" pour :
+  - Nettoyer le texte des notes de résolution
+  - Gérer les valeurs manquantes
+  - Créer la colonne 'est_fiable'
+  - Encoder les variables catégorielles
 
-```m
-if Text.PositionOf([NomDeTaColonne], ";") >= 0 then "oui" else "non"
+### 3. Création des embeddings avec CamemBERT
+
+**Dans Dataiku :**
+```python
+# Recipe Python pour générer les embeddings
+import dataiku
+import pandas as pd
+from transformers import CamembertTokenizer, CamembertModel
+import torch
+
+# Lire le dataset
+df = dataiku.Dataset("metis_tickets_prepared").get_dataframe()
+
+# Charger CamemBERT
+tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
+model = CamembertModel.from_pretrained('camembert-base')
+
+# Fonction pour générer les embeddings
+def get_embeddings(texts, batch_size=16):
+    embeddings = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i+batch_size]
+        inputs = tokenizer(batch, padding=True, truncation=True, 
+                          max_length=128, return_tensors='pt')
+        with torch.no_grad():
+            outputs = model(**inputs)
+            # Utiliser le token [CLS]
+            batch_embeddings = outputs.last_hidden_state[:, 0, :].numpy()
+        embeddings.extend(batch_embeddings)
+    return embeddings
+
+# Appliquer sur vos données
+df['embeddings'] = get_embeddings(df['notes_resolution_nettoyees'].tolist())
 ```
 
-## Méthode 3 : Plus robuste (gère les valeurs nulles)
+### 4. Implémentation du clustering HDBSCAN
 
-```m
-if [NomDeTaColonne] <> null and Text.Contains([NomDeTaColonne], ";") then "oui" else "non"
-```
+**Créer un recipe Python pour le clustering :**
+```python
+# Enrichir les embeddings avec les variables catégorielles
+from sklearn.preprocessing import StandardScaler
+import numpy as np
 
-**Remplace `[NomDeTaColonne]` par le nom exact de ta colonne.**
+# Préparer les features catégorielles
+cat_features = ['Groupe_affecté_encoded', 'Service_métier_encoded', 
+                'Cat1_encoded', 'Cat2_encoded', 'Priorité_encoded']
 
-La première méthode avec `Text.Contains()` est la plus simple et la plus lisible. Elle retournera "oui" dès qu'il y a au moins un point-virgule dans la chaîne, et "non" dans tous les autres cas.
+# Normaliser et pondérer
+scaler = StandardScaler()
+cat_data = scaler.fit_transform(df[cat_features])
 
-Tu veux que je t'explique une de ces approches plus en détail ?
+# Pondération comme dans votre approche
+weights = {'Groupe_affecté': 3.0, 'Service_métier': 2.0, 
+           'Cat1': 1.0, 'Cat2': 1.0, 'Priorité': 0.5}
 
-____________________
+# Combiner embeddings et features catégorielles
+embeddings_enriched = np.hstack([df['embeddings'].tolist(), cat_data])
 
+# UMAP + HDBSCAN avec vos paramètres optimaux
+from umap import UMAP
+import hdbscan
 
-L'utilisateur veut créer une nouvelle colonne qui va filtrer les valeurs d'une colonne existante pour ne garder que les éléments qui contiennent "APPOPS". 
+reducer = UMAP(n_components=2, random_state=42, n_neighbors=15)
+embeddings_2d = reducer.fit_transform(embeddings_enriched)
 
-Dans l'exemple donné :
-- Colonne originale : "CAIP-BCR-APPOPS_Rel;CAIP-BCR-EU_Md;CAIP-BCR-APPOPS_Mid"
-- Colonne désirée : "CAIP-BCR-APPOPS_Rel;CAIP-BCR-APPOPS_Mid"
-
-Donc il faut :
-1. Séparer la chaîne par les points-virgules
-2. Filtrer les éléments qui contiennent "APPOPS"
-3. Rejoindre les éléments filtrés avec des points-virgules
-
-En Power Query/M, cela peut se faire avec :
-- Text.Split() pour séparer
-- List.Select() pour filtrer
-- Text.Combine() pour rejoindre
-
-Ah oui, je comprends ! Tu veux extraire seulement les éléments qui contiennent "APPOPS" dans ta chaîne séparée par des points-virgules.
-
-Voici la solution dans Power Query :
-
-## Méthode avec manipulation de liste
-
-**Colonne personnalisée** avec cette formule :
-
-```m
-Text.Combine(
-    List.Select(
-        Text.Split([NomDeTaColonne], ";"), 
-        each Text.Contains(_, "APPOPS")
-    ), 
-    ";"
+clusterer = hdbscan.HDBSCAN(
+    min_cluster_size=240,
+    min_samples=20,
+    cluster_selection_epsilon=1.56,
+    metric='euclidean'
 )
+df['cluster'] = clusterer.fit_predict(embeddings_2d)
 ```
 
-## Explication étape par étape :
+### 5. Configuration du modèle LLM dans Dataiku
 
-1. **`Text.Split([NomDeTaColonne], ";")`** : Sépare ta chaîne en liste
-   - `"CAIP-BCR-APPOPS_Rel;CAIP-BCR-EU_Md;CAIP-BCR-APPOPS_Mid"` 
-   - devient `{"CAIP-BCR-APPOPS_Rel", "CAIP-BCR-EU_Md", "CAIP-BCR-APPOPS_Mid"}`
+**Utiliser les LLM Labs de Dataiku :**
+1. Allez dans "Lab" > "LLM Experimentation"
+2. Configurez votre modèle (CamemBERT ou mDeBERTa)
+3. Créez un prompt pour la classification des tickets
 
-2. **`List.Select(..., each Text.Contains(_, "APPOPS"))`** : Garde seulement ceux qui contiennent "APPOPS"
-   - devient `{"CAIP-BCR-APPOPS_Rel", "CAIP-BCR-APPOPS_Mid"}`
+### 6. Création du classificateur hybride
 
-3. **`Text.Combine(..., ";")`** : Recolle tout avec des points-virgules
-   - résultat final : `"CAIP-BCR-APPOPS_Rel;CAIP-BCR-APPOPS_Mid"`
-
-## Version plus robuste (gère les valeurs nulles) :
-
-```m
-if [NomDeTaColonne] <> null then 
-    Text.Combine(
-        List.Select(
-            Text.Split([NomDeTaColonne], ";"), 
-            each Text.Contains(_, "APPOPS")
-        ), 
-        ";"
-    ) 
-else null
+**Recipe Python pour le vote pondéré :**
+```python
+def classify_hybrid(row, llm_predictions, cluster_to_cause):
+    # Récupérer les prédictions
+    llm_pred = llm_predictions.get(row['N° INC'])
+    cluster_pred = cluster_to_cause.get(row['cluster'], 'À déterminer')
+    
+    # Système de vote pondéré
+    weights = {
+        'llm': 0.6,
+        'clustering': 0.4
+    }
+    
+    # Logique de combinaison
+    if cluster_pred == 'À déterminer':
+        return llm_pred
+    elif llm_pred == cluster_pred:
+        return llm_pred
+    else:
+        # Vote pondéré si désaccord
+        # Implémenter votre logique spécifique
+        return llm_pred  # ou cluster_pred selon confiance
 ```
 
-N'oublie pas de remplacer `[NomDeTaColonne]` par le nom exact de ta colonne !
+### 7. Création du pipeline de déploiement
 
+**Dans Dataiku Flow :**
+1. Créez un scenario pour automatiser :
+   - Import des nouvelles données
+   - Préparation
+   - Génération d'embeddings
+   - Clustering
+   - Classification LLM
+   - Vote hybride
+   - Export des résultats
 
+2. Configurez les triggers (temps réel, batch, etc.)
 
+### 8. Monitoring et visualisations
 
-___________________
-Ah je vois le problème ! L'utilisateur a une table de dimension `Appops_` qui est liée à la table de faits `obso_planifall` par la colonne `Appops`. Quand il utilise un slicer/segment basé sur la table `Appops_`, cela filtre aussi la table `obso_planifall` à travers la relation.
+**Créer un dashboard Dataiku :**
+- Distribution des clusters
+- Score de silhouette en temps réel
+- Métriques de performance
+- Évolution du volume de tickets
 
-La mesure que j'ai proposée utilise `ALL(obso_planifall[Appops])` mais comme le filtre vient de la table `Appops_`, il faut ignorer le filtre sur cette table aussi.
+### 9. API pour le déploiement
 
-Il faut utiliser `ALL(Appops_)` ou `ALL(Appops_[Appops])` selon la structure de la table de dimension.
-
-Ah oui, je vois le problème ! Comme votre segment est basé sur la table de dimension `Appops_` et non directement sur `obso_planifall[Appops]`, il faut ignorer le filtre sur la table `Appops_`.
-
-Voici la correction :
-
-```dax
-Moyenne_Serveur_OS_Toutes_AppOps = 
-AVERAGEX(
-    ALL(Appops_),
-    [Serveur_OS]
-)
+```python
+# Endpoint API dans Dataiku
+def predict_ticket_cause(ticket_data):
+    # Prétraitement
+    # Embedding
+    # Prédiction hybride
+    return {
+        'cause': predicted_cause,
+        'confidence': confidence_score,
+        'method': 'hybrid'
+    }
 ```
 
-**Ou si vous voulez être plus spécifique :**
+### 💡 Conseils pratiques :
 
-```dax
-Moyenne_Serveur_OS_Toutes_AppOps = 
-AVERAGEX(
-    ALL(Appops_[Appops]),
-    [Serveur_OS]
-)
-```
+1. **Commencez petit** : Testez d'abord sur un échantillon de 1000 tickets
+2. **Utilisez les Visual Recipes** : Dataiku offre des interfaces visuelles pour beaucoup d'opérations
+3. **Versioning** : Utilisez le versioning de Dataiku pour tracker vos modèles
+4. **Collaboration** : Partagez votre projet avec l'équipe pour review
 
-**Explication :**
-- `ALL(Appops_)` : Ignore complètement le filtre appliqué sur votre table de dimension `Appops_`
-- Cela permet à la mesure de voir toutes les AppOps et de calculer la moyenne globale
-- La relation entre `Appops_` et `obso_planifall` sera toujours respectée, mais sans restriction de filtre
-
-Maintenant votre mesure de moyenne ne bougera plus quand vous sélectionnez une AppOps dans votre segment !
-
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-SELECT *
-FROM votre_table_name
-WHERE 
-    -- Filtre 1: Companies contenant CA Technologies, CA CR ou Banque Chalus
-    (
-        dv_u_impacted_companies LIKE '%CA Technologies%' 
-        OR dv_u_impacted_companies LIKE '%CA CR%'
-        OR dv_u_impacted_companies LIKE '%Banque Chalus%'
-    )
-    -- Filtre 2: État Fermé ou Résolu
-    AND dv_state IN ('Fermé', 'Résolu')
-    -- Filtre 3: Master incident vide
-    AND (dv_u_master_incident IS NULL OR dv_u_master_incident = '')
+Avez-vous des questions spécifiques sur l'une de ces étapes ? Par quoi souhaitez-vous commencer ?
