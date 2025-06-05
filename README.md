@@ -179,3 +179,84 @@ def predict_ticket_cause(ticket_data):
 4. **Collaboration** : Partagez votre projet avec l'équipe pour review
 
 Avez-vous des questions spécifiques sur l'une de ces étapes ? Par quoi souhaitez-vous commencer ?
+
+
+999999999999999999999999999999999999999999
+
+
+Je vois le problème ! Dans votre flow Dataiku, le dataset s'appelle `fiable_parts_1_2_stacked` mais vous essayez de créer la colonne `est_fiable` en utilisant ce dataset avec une colonne `Numéro`.
+
+Voici le code corrigé en tenant compte de votre flow :
+
+```python
+# -*- coding: utf-8 -*-
+import dataiku
+import pandas as pd, numpy as np
+from dataiku import pandasutils as pdu
+
+# Read recipe inputs
+incident_prepared_text_cleaning = dataiku.Dataset("incident_prepared_text_cleaning")
+incident_prepared_text_cleaning_df = incident_prepared_text_cleaning.get_dataframe()
+
+# Chargement du fichier des tickets fiables
+fiables_dataset = dataiku.Dataset("fiable_parts_1_2_stacked")
+df_fiables = fiables_dataset.get_dataframe()
+
+# Créer la colonne est_fiable
+# IMPORTANT: Vérifiez le nom exact de la colonne dans df_fiables
+# Affichons d'abord les colonnes pour débugger
+print("Colonnes dans le dataset des tickets fiables:", df_fiables.columns.tolist())
+print("Colonnes dans le dataset incident:", incident_prepared_text_cleaning_df.columns.tolist())
+
+# Adaptation selon le nom réel de la colonne
+# Si la colonne s'appelle 'Numéro' dans df_fiables et 'N° INC' dans l'autre
+incident_prepared_fiable_column_added_df = incident_prepared_text_cleaning_df.copy()
+
+# Essayez l'une de ces options selon vos noms de colonnes :
+
+# Option 1: Si les deux ont la même colonne 'N° INC'
+if 'N° INC' in df_fiables.columns:
+    incident_prepared_fiable_column_added_df['est_fiable'] = incident_prepared_text_cleaning_df['N° INC'].isin(df_fiables['N° INC'])
+
+# Option 2: Si df_fiables a 'Numéro' et l'autre a 'N° INC'
+elif 'Numéro' in df_fiables.columns:
+    incident_prepared_fiable_column_added_df['est_fiable'] = incident_prepared_text_cleaning_df['N° INC'].isin(df_fiables['Numéro'])
+
+# Option 3: Si les noms sont différents, adaptez ici
+else:
+    print("ATTENTION: Colonnes non trouvées, vérifiez les noms!")
+    # Mettez False par défaut
+    incident_prepared_fiable_column_added_df['est_fiable'] = False
+
+# Afficher quelques statistiques pour vérifier
+print(f"Nombre total de tickets: {len(incident_prepared_fiable_column_added_df)}")
+print(f"Nombre de tickets fiables: {incident_prepared_fiable_column_added_df['est_fiable'].sum()}")
+
+# Write recipe outputs
+incident_prepared_fiable_column_added = dataiku.Dataset("incident_prepared_fiable_column_added")
+incident_prepared_fiable_column_added.write_with_schema(incident_prepared_fiable_column_added_df)
+```
+
+## 🔍 Pour débugger :
+
+1. **Vérifiez les colonnes** en ajoutant ce code au début :
+```python
+# Chargement et inspection
+fiables_dataset = dataiku.Dataset("fiable_parts_1_2_stacked")
+df_fiables = fiables_dataset.get_dataframe()
+
+print("="*50)
+print("INFO DATASET FIABLES:")
+print(f"Nombre de lignes: {len(df_fiables)}")
+print(f"Colonnes: {df_fiables.columns.tolist()}")
+print(f"Premières lignes:")
+print(df_fiables.head())
+print("="*50)
+```
+
+2. **Si l'erreur persiste**, vérifiez que :
+   - Le dataset `fiable_parts_1_2_stacked` est bien construit (icône verte)
+   - Vous avez les permissions de lecture sur ce dataset
+   - Le recipe Python a bien `fiable_parts_1_2_stacked` comme input
+
+Pouvez-vous me dire quelles colonnes s'affichent quand vous exécutez le code de débogage ?
