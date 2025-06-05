@@ -260,3 +260,78 @@ print("="*50)
    - Le recipe Python a bien `fiable_parts_1_2_stacked` comme input
 
 Pouvez-vous me dire quelles colonnes s'affichent quand vous exécutez le code de débogage ?
+
+
+444444444444444444444444444444444444444444
+
+Vous avez raison ! Je vous ai montré comment encoder dans le code Python, mais pas comment le faire directement dans Dataiku avec l'interface visuelle. Voici comment encoder les variables catégorielles :
+
+## 🔄 Encoder les variables catégorielles dans Dataiku
+
+### Option 1 : Via un Recipe Prepare (Recommandé pour la simplicité)
+
+1. **Créez un Recipe Prepare** sur votre dataset `incident_prepared_fiable_column_added`
+
+2. **Pour chaque variable catégorielle** (`Priorité`, `Service métier`, `Cat1`, `Cat2`, `Groupe affecté`) :
+
+   **Méthode A - Ordinal encoding (simple)** :
+   - Cliquez sur **"+ Add a New Step"**
+   - Choisissez **"Encode categorical variables"** → **"Ordinal encoding"**
+   - Sélectionnez la colonne (ex: `Groupe affecté`)
+   - Dataiku créera une nouvelle colonne `Groupe affecté_encoded`
+
+   **Méthode B - Target encoding** (si vous voulez tenir compte de la relation avec la cible) :
+   - **"+ Add a New Step"**
+   - **"Encode categorical variables"** → **"Target encoding"**
+   - Column: `Groupe affecté`
+   - Target: `cause`
+
+### Option 2 : Via un Recipe Python (Plus de contrôle)
+
+```python
+# -*- coding: utf-8 -*-
+import dataiku
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+
+# Lire le dataset
+input_dataset = dataiku.Dataset("incident_prepared_fiable_column_added")
+df = input_dataset.get_dataframe()
+
+# Variables catégorielles à encoder
+cat_vars = ['Priorité', 'Service métier', 'Cat1', 'Cat2', 'Groupe affecté']
+
+# Méthode 1: Label Encoding simple
+for col in cat_vars:
+    if col in df.columns:
+        le = LabelEncoder()
+        # Gérer les valeurs manquantes
+        df[col] = df[col].fillna('INCONNU')
+        # Encoder
+        df[f'{col}_encoded'] = le.fit_transform(df[col])
+        
+        # Optionnel: Afficher le mapping
+        print(f"\nMapping pour {col}:")
+        for i, label in enumerate(le.classes_):
+            print(f"  {label} -> {i}")
+
+# Méthode 2: One-Hot Encoding pour certaines variables (si peu de modalités)
+# Par exemple pour Priorité qui a peu de valeurs
+if 'Priorité' in df.columns:
+    df_priority_encoded = pd.get_dummies(df['Priorité'], prefix='Priorité')
+    df = pd.concat([df, df_priority_encoded], axis=1)
+
+# Afficher les statistiques
+print("\nNouvelles colonnes créées:")
+for col in df.columns:
+    if col.endswith('_encoded'):
+        print(f"- {col}: {df[col].nunique()} valeurs uniques")
+
+# Écrire le résultat
+output_dataset = dataiku.Dataset("incident_with_encoded_features")
+output_dataset.write_with_schema(df)
+```
+
+### Option 3 : Via le Lab Visual ML (Pour voir l'impact)
+
+1. Allez dans **"Lab"** → **"
