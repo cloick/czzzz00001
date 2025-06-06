@@ -354,3 +354,41 @@ Voici votre requête corrigée avec l'échappement des guillemets :
 3. **La syntaxe Power Query** est maintenant correcte
 
 Cette version devrait fonctionner sans problème dans Power BI et résoudre votre problème de cache !
+
+
+
+autrrrrrrrrrr6628292992992929282828282
+
+Ah je comprends votre confusion ! Laissez-moi clarifier :
+
+## **Le problème initial :**
+Dans votre code, vous aviez des guillemets simples autour de la requête SQL, mais des guillemets doubles **à l'intérieur** de la requête SQL.
+
+Exemple de ce qui ne marchait pas :
+```
+= Odbc.Query("...", "SELECT s."NOM_CS" FROM...")
+                    ↑                ↑
+                    début            Power BI pense que c'est la fin !
+```
+
+## **Les deux solutions possibles :**
+
+### **Solution 1 - Échapper les guillemets (ce que j'ai fait) :**
+Remplacer chaque `"` dans la requête SQL par `""` :
+```sql
+s."NOM_CS"     devient     s.""NOM_CS""
+```
+
+### **Solution 2 - Utiliser des backticks MySQL (plus simple) :**
+Remplacer les `"` par des backticks `` ` `` dans votre requête SQL :
+```sql
+s."NOM_CS"     devient     s.`NOM_CS`
+```
+
+## **Voici votre code avec la Solution 2 (plus lisible) :**
+
+```
+= Odbc.Query("driver=(MySQL ODBC 8.0 Unicode Driver);server=TTP10D1MTTPOL.zres.ztech;database=D100RC801J;port=550;dsn=dBASE Files", "SELECT DISTINCT s.`NOM_CS`,s.`CMDB_STATUT`,s.ENTITE,s.`NOM_INST_DEPL`,s.S_Code,s.S_Libelle,s.P_Code,s.P_Libelle,s.P_TR_Libelle,s.P_PP_Libelle,s.`CD_PASS`,s.GS_PROP,s.GS_PTCT,coalesce((select group_concat(DISTINCT elt ORDER BY elt SEPARATOR ' ') from json_table(concat('[',REPLACE(TRIM(REPLACE(REPLACE(REPLACE(ORIGINE,'Dns',''),'Vip',''),',','')),',',''),']'),'$[*]' COLUMNS (elt varchar(50) path '$')) jt where elt<>''),'') as ORIGINE,s.RELFIAB,s.CHEMIN,s.ENV_PROD,CASE COALESCE(a.u_open_mvs_technology,'') WHEN 'Open' THEN 'O' WHEN 'MVS/Open' THEN 'O' WHEN 'MVS' THEN 'N' ELSE '' END as MAT_OPEN,CASE COALESCE(a.u_open_mvs_technology,'') WHEN 'Open' THEN 'N' WHEN 'MVS/Open' THEN 'O' WHEN 'MVS' THEN 'O' ELSE '' END as MAT_MAINFRAME,s.NIV_CRITICT,COALESCE(o.`composant`,trim(concat(b.`CD_MDL_OS`,' ',b.`NUM_VRS_OS`))) AS `modele_os`, NOW() as refresh_timestamp FROM `orc_visionappli2` s LEFT JOIN cmdb_ci_app_server a ON a.u_application_code = s.S_Code AND a.install_status <> 'Retire' AND a.u_application_code <> '' left join `cmdb_srv` `b` ON b.ID_CS = s.ID_CS left join `obso_parametre` `c` on `c`.`Code` = 'transco_OS' and `c`.`Cle` <> '' and `c`.`Cle` = trim(concat(`b`.`CD_MDL_OS`,' ',`b`.`NUM_VRS_OS`)) left join `obso_composant` `o` on `o`.`composant` = `c`.`Valeur` WHERE s.FILTRE <> 'F' ORDER BY s.`NOM_CS`,s.S_Code,s.`CHEMIN`,s.`NOM_INST_DEPL`,s.`CD_PASS`")
+```
+
+**Cette version est plus lisible et fonctionne parfaitement avec MySQL !**
