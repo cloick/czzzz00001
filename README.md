@@ -335,3 +335,22 @@ output_dataset.write_with_schema(df)
 ### Option 3 : Via le Lab Visual ML (Pour voir l'impact)
 
 1. Allez dans **"Lab"** → **"
+2. 
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+power query !!
+
+Voici votre requête corrigée avec l'échappement des guillemets :
+
+```
+= Odbc.Query("driver=(MySQL ODBC 8.0 Unicode Driver);server=TTP10D1MTTPOL.zres.ztech;database=D100RC801J;port=550;dsn=dBASE Files", "SELECT DISTINCT s.""NOM_CS"",s.""CMDB_STATUT"",s.ENTITE,s.""NOM_INST_DEPL"",s.S_Code,s.S_Libelle,s.P_Code,s.P_Libelle,s.P_TR_Libelle,s.P_PP_Libelle,s.""CD_PASS"",s.GS_PROP,s.GS_PTCT,coalesce((select group_concat(DISTINCT elt ORDER BY elt SEPARATOR "" "") from json_table(concat(""["",REPLACE(TRIM(REPLACE(REPLACE(REPLACE(ORIGINE,""Dns"",""""),""Vip"",""""),"""","""")),"","",""""),""""]""),""$[*]"" COLUMNS (elt varchar(50) path ""$"")) jt where elt<>""""),"""") as ORIGINE,s.RELFIAB,s.CHEMIN,s.ENV_PROD,CASE COALESCE(a.u_open_mvs_technology,"""") WHEN ""Open"" THEN ""O"" WHEN ""MVS/Open"" THEN ""O"" WHEN ""MVS"" THEN ""N"" ELSE """" END as MAT_OPEN,CASE COALESCE(a.u_open_mvs_technology,"""") WHEN ""Open"" THEN ""N"" WHEN ""MVS/Open"" THEN ""O"" WHEN ""MVS"" THEN ""O"" ELSE """" END as MAT_MAINFRAME,s.NIV_CRITICT,COALESCE(""o"".""composant"",trim(concat(""b"".""CD_MDL_OS"","" "",""b"".""NUM_VRS_OS""))) AS ""modele_os"", NOW() as refresh_timestamp FROM ""orc_visionappli2"" s LEFT JOIN cmdb_ci_app_server a ON a.u_application_code = s.S_Code AND a.install_status <> ""Retire"" AND a.u_application_code <> """" left join ""cmdb_srv"" ""b"" ON b.ID_CS = s.ID_CS left join ""obso_parametre"" ""c"" on ""c"".""Code"" = ""transco_OS"" and ""c"".""Cle"" <> """" and ""c"".""Cle"" = trim(concat(""b"".""CD_MDL_OS"","" "",""b"".""NUM_VRS_OS"")) left join ""obso_composant"" ""o"" on ""o"".""composant"" = ""c"".""Valeur"" WHERE s.FILTRE <> ""F"" ORDER BY s.""NOM_CS"",s.S_Code,s.""CHEMIN"",s.""NOM_INST_DEPL"",s.""CD_PASS""")
+```
+
+**Principales corrections :**
+1. **Tous les guillemets doubles dans la requête SQL** sont maintenant échappés : `"` devient `""`
+2. **Le timestamp `NOW()`** est ajouté à la fin pour forcer la détection des changements
+3. **La syntaxe Power Query** est maintenant correcte
+
+Cette version devrait fonctionner sans problème dans Power BI et résoudre votre problème de cache !
