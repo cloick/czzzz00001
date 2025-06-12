@@ -2,6 +2,8 @@
 import dataiku
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Backend sans interface graphique
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -154,7 +156,7 @@ plt.xlabel('UMAP Dimension 1')
 plt.ylabel('UMAP Dimension 2')
 plt.tight_layout()
 plt.savefig('density_heatmap.png', dpi=300, bbox_inches='tight')
-plt.show()
+plt.close()  # Fermer au lieu de show()
 print("✅ Heatmap sauvée : density_heatmap.png")
 
 # 5. ANALYSE DES TAILLES DE CLUSTERS
@@ -195,7 +197,7 @@ if 'cause' in df_viz.columns and 'est_fiable' in df_viz.columns:
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
-        plt.show()
+        plt.close()  # Fermer au lieu de show()
         print("✅ Matrice de confusion sauvée : confusion_matrix.png")
 
 # 7. DASHBOARD INTERACTIF COMPLET
