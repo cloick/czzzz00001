@@ -126,31 +126,43 @@ for cluster in sorted([c for c in clusters if c != -1]):
         for word, count in top_words[:8]:  # Limiter l'affichage
             print(f"      • {word}: {count} occurrences")
     
-    # 4. EXEMPLES DE TICKETS REPRÉSENTATIFS
-    print(f"\n📄 Échantillon de tickets représentatifs :")
+    # 4. TOUS LES TICKETS DU CLUSTER
+    print(f"\n📄 Tous les tickets du cluster :")
     
-    # Prendre un mélange de tickets fiables et non fiables
-    exemples = []
+    # TOUS les numéros de tickets du cluster
+    if 'N° INC' in cluster_data.columns:
+        tous_tickets = cluster_data['N° INC'].tolist()
+        analysis['exemples_tickets'] = tous_tickets
+        print(f"   📋 {len(tous_tickets)} tickets : {', '.join(map(str, tous_tickets[:10]))}")
+        if len(tous_tickets) > 10:
+            print(f"   📋 ... et {len(tous_tickets)-10} autres tickets")
+    else:
+        # Si pas de colonne N° INC, utiliser les index
+        tous_tickets = cluster_data.index.tolist()
+        analysis['exemples_tickets'] = tous_tickets
+        print(f"   📋 {len(tous_tickets)} tickets (index) : {', '.join(map(str, tous_tickets[:10]))}")
     
+    # Échantillon représentatif pour affichage détaillé
+    exemples_display = []
     if 'est_fiable' in cluster_data.columns:
         # D'abord les tickets fiables
         fiables_sample = cluster_data[cluster_data['est_fiable']].head(3)
-        exemples.extend(fiables_sample.index.tolist())
+        exemples_display.extend(fiables_sample.index.tolist())
         
         # Puis des tickets non fiables
         non_fiables = cluster_data[~cluster_data['est_fiable']]
         if len(non_fiables) > 0:
             non_fiables_sample = non_fiables.sample(min(2, len(non_fiables)), random_state=42)
-            exemples.extend(non_fiables_sample.index.tolist())
+            exemples_display.extend(non_fiables_sample.index.tolist())
     else:
         # Échantillon aléatoire
         sample_size = min(5, len(cluster_data))
         sample_tickets = cluster_data.sample(sample_size, random_state=42)
-        exemples.extend(sample_tickets.index.tolist())
+        exemples_display.extend(sample_tickets.index.tolist())
     
-    analysis['exemples_tickets'] = exemples
+    print(f"\n📄 Échantillon détaillé (5 premiers) :")
     
-    for i, idx in enumerate(exemples[:5], 1):
+    for i, idx in enumerate(exemples_display[:5], 1):
         ticket = df.loc[idx]
         fiable_str = " (FIABLE)" if ticket.get('est_fiable', False) else ""
         cause_str = f" | Cause: {ticket.get('cause', 'N/A')}" if 'cause' in ticket else ""
@@ -163,34 +175,44 @@ for cluster in sorted([c for c in clusters if c != -1]):
             print(f"      Note: {note}{'...' if len(str(ticket['Notes de résolution'])) > 150 else ''}")
         print()
     
-    # 5. SCORE DE COHÉRENCE DU CLUSTER
+    # 5. SCORE DE COHÉRENCE DU CLUSTER (explication détaillée)
     coherence_factors = []
+    coherence_details = []
     
     # Cohérence des causes (si tickets fiables)
     if analysis['n_fiables'] > 0 and analysis['causes_repartition']:
         max_cause_pct = max(analysis['causes_repartition'].values()) / analysis['n_fiables']
         coherence_factors.append(max_cause_pct)
+        coherence_details.append(f"Cohérence causes: {max_cause_pct:.2f}")
     
     # Cohérence du groupe affecté
     if analysis['groupe_dominant']:
         groupe_pct = cluster_data[cluster_data['Groupe affecté'] == analysis['groupe_dominant']].shape[0] / len(cluster_data)
         coherence_factors.append(groupe_pct)
+        coherence_details.append(f"Cohérence groupe: {groupe_pct:.2f}")
     
     # Cohérence du service
     if analysis['service_dominant']:
         service_pct = cluster_data[cluster_data['Service métier'] == analysis['service_dominant']].shape[0] / len(cluster_data)
         coherence_factors.append(service_pct)
+        coherence_details.append(f"Cohérence service: {service_pct:.2f}")
     
     if coherence_factors:
         analysis['coherence_score'] = np.mean(coherence_factors)
         
         print(f"📊 Score de cohérence : {analysis['coherence_score']:.2f}")
+        print(f"   📝 Détail : {' | '.join(coherence_details)}")
+        print(f"   📖 Signification :")
+        print(f"      • >0.70 = Cluster très cohérent (tickets très similaires)")
+        print(f"      • 0.50-0.70 = Cluster moyennement cohérent") 
+        print(f"      • <0.50 = Cluster peu cohérent (tickets disparates)")
+        
         if analysis['coherence_score'] > 0.7:
-            print(f"   ✅ Cluster très cohérent")
+            print(f"   ✅ Cluster très cohérent - Validation recommandée")
         elif analysis['coherence_score'] > 0.5:
-            print(f"   🟡 Cluster moyennement cohérent")
+            print(f"   🟡 Cluster moyennement cohérent - Validation conseillée")
         else:
-            print(f"   ⚠️  Cluster peu cohérent - À examiner")
+            print(f"   ⚠️  Cluster peu cohérent - Validation OBLIGATOIRE")
     
     cluster_analysis.append(analysis)
 
