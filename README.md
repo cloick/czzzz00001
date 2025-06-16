@@ -1,45 +1,44 @@
-Je vois le problème dans votre formule DAX. Voici la version corrigée :
+Voici la formule DAX pour créer votre colonne "Nature" :
 
 ```dax
-Diff_dds_vdr_h = 
+Nature = 
 IF(
-    OR(
-        incident[dv_state] = "Résolu",
-        incident[dv_state] = "Fermé"
+    AND(
+        incident[category] = "application",
+        OR(
+            incident[sous_categorie] = "resultat erroné",
+            incident[sous_categorie] = "Message d'erreur"
+        )
     ),
-    DATEDIFF(
-        incident[u_loss_date],
-        incident[u_effective_resolved_at],
-        HOUR
-    ),
-    BLANK()
+    "Fonctionnel",
+    "Technique"
 )
 ```
 
-## Corrections apportées :
-
-1. **Syntaxe OR** : `OR(condition1, condition2)` au lieu de `or(incident[dv_state]="Résolu",incident[dv_state]="Fermé")`
-
-2. **Guillemets** : Utilisation de guillemets droits `"` au lieu de guillemets courbes
-
-3. **Structure IF** : Formatage propre avec indentation
-
-4. **BLANK()** : Plus propre que de laisser vide pour la valeur else
-
-## Alternative plus concise :
+## Alternative plus concise avec IN :
 ```dax
-Diff_dds_vdr_h = 
+Nature = 
 IF(
-    incident[dv_state] IN {"Résolu", "Fermé"},
-    DATEDIFF(
-        incident[u_loss_date],
-        incident[u_effective_resolved_at],
-        HOUR
+    AND(
+        incident[category] = "application",
+        incident[sous_categorie] IN {"resultat erroné", "Message d'erreur"}
     ),
-    BLANK()
+    "Fonctionnel",
+    "Technique"
 )
 ```
 
-La fonction `IN` est souvent plus lisible quand on teste plusieurs valeurs sur la même colonne.
+## Logique :
+- **"Fonctionnel"** si :
+  - `category` = "application" **ET**
+  - `sous_categorie` = "resultat erroné" **OU** "Message d'erreur"
+  
+- **"Technique"** dans tous les autres cas
 
-Testez cette version corrigée !
+## Pour créer la colonne :
+1. Allez dans l'onglet **Modélisation**
+2. Cliquez sur **Nouvelle colonne**
+3. Collez la formule
+4. Appuyez sur Entrée
+
+Attention aux majuscules/minuscules et aux accents dans vos valeurs - elles doivent correspondre exactement à ce qui est dans vos données !
