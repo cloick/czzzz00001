@@ -1,47 +1,68 @@
-Ah je vois ! Maintenant au lieu de compter les solutions (1 par solution qui a au moins une ligne différente), on veut compter le NOMBRE DE LIGNES qui sont différentes des 4 valeurs exclues.
+Parfait ! Maintenant je dois créer les mesures pour compter les solutions qui ont au moins une ligne avec un format trimestre "TX/AAAA".
 
-Donc pour chaque Appops, on va compter combien de lignes ont une valeur dans "Planification test : Tx/2025 ou Tx/2026" qui n'est pas "NA", "NR", "ILSI CAGIP", "ILSI externe".
+Je vais utiliser une logique similaire à la première série de mesures (comptage de solutions), mais avec une condition différente pour détecter le format trimestre.
 
-Exemple:
-- Appops A: 15 lignes différentes des 4 valeurs
-- Appops B: 8 lignes différentes des 4 valeurs  
-- Appops C: 22 lignes différentes des 4 valeurs
+Pour détecter le format "TX/AAAA", je peux utiliser:
+- SEARCH ou FIND pour chercher des patterns
+- Ou utiliser des conditions sur la longueur et les caractères
+- Ou REGEX si disponible en DAX (mais je crois que non)
 
-Et on veut:
-- Max = 22
-- Min = 8  
-- Moyenne = (15+8+22)/3 = 15
-- Target = valeur pour l'Appops sélectionné
+Je pense que la meilleure approche est d'utiliser une condition qui vérifie:
+- La valeur commence par "T"
+- Contient un "/"
+- A une certaine longueur (probablement 7 caractères: T1/2025)
 
-Il faut suivre le même pattern que ses mesures existantes, en excluant "Non pris" pour les calculs globaux.
+Ou plus simplement, utiliser SEARCH pour chercher le pattern "T" suivi éventuellement de chiffres et "/"
 
-Ah parfait ! Maintenant on compte le **nombre de lignes** (pas de solutions) qui ont des valeurs différentes des 4 valeurs exclues.
+Voici ce que je vais faire:
+1. Mesure de base qui compte les solutions avec au moins une ligne trimestre
+2. Mesures Max/Min/Moy qui excluent "Non pris"
 
-Voici les mesures :
+Pour la détection du trimestre, je vais utiliser une condition comme:
+- LEFT(colonne, 1) = "T" ET SEARCH("/", colonne) pour vérifier le format de base
+- Ou plus précis: vérifier que c'est T + chiffre + / + année
+
+Je vais commencer par une approche simple et robuste.
+
+Parfait ! Voici les mesures pour compter les solutions avec au moins un trimestre planifié :
 
 ## 1. Mesure de base (Target pour l'Appops sélectionné)
 
 ```dax
-Lignes Test A Faire = 
-COUNTROWS(
-    FILTER(
+Solutions Avec Trimestre = 
+VAR SolutionsAvecTrimestre = 
+    SUMMARIZE(
         ILSI,
-        NOT(ILSI[Planification test : Tx/2025 ou Tx/2026] IN {"NA", "NR", "ILSI CAGIP", "ILSI externe"})
+        ILSI[Id Solution],
+        "AUnTrimestre", 
+        IF(
+            COUNTROWS(
+                FILTER(
+                    ILSI,
+                    ILSI[Id Solution] = EARLIER(ILSI[Id Solution]) &&
+                    LEFT(ILSI[Planification test : Tx/2025 ou Tx/2026], 1) = "T" &&
+                    SEARCH("/", ILSI[Planification test : Tx/2025 ou Tx/2026], 1, 0) > 0
+                )
+            ) > 0,
+            1,
+            0
+        )
     )
-)
+RETURN
+    SUMX(FILTER(SolutionsAvecTrimestre, [AUnTrimestre] = 1), 1)
 ```
 
 ## 2. Mesures Max/Min/Moyenne (excluant "Non pris")
 
 ```dax
-MaxValueLignesTest = 
+MaxValueSolutionsTrimestre = 
 VAR AllAppops = ALL('ILSI'[Appops])
 VAR ComptageParAppops = 
     ADDCOLUMNS(
         FILTER(AllAppops, 'ILSI'[Appops] <> "Non pris"),
-        "CompteLignes",
+        "CompteSolutions",
         CALCULATE(
-            [Lignes Test A Faire],
+            [Solutions Avec Trimestre],
             ALLEXCEPT('ILSI', 'ILSI'[Appops]),
             FILTER(
                 ALL('ILSI'),
@@ -50,20 +71,20 @@ VAR ComptageParAppops =
         )
     )
 VAR AppopsWithNonZeroCounts = 
-    FILTER(ComptageParAppops, [CompteLignes] > 0)
+    FILTER(ComptageParAppops, [CompteSolutions] > 0)
 RETURN
-    MAXX(AppopsWithNonZeroCounts, [CompteLignes])
+    MAXX(AppopsWithNonZeroCounts, [CompteSolutions])
 ```
 
 ```dax
-MinValueLignesTest = 
+MinValueSolutionsTrimestre = 
 VAR AllAppops = ALL('ILSI'[Appops])
 VAR ComptageParAppops = 
     ADDCOLUMNS(
         FILTER(AllAppops, 'ILSI'[Appops] <> "Non pris"),
-        "CompteLignes",
+        "CompteSolutions",
         CALCULATE(
-            [Lignes Test A Faire],
+            [Solutions Avec Trimestre],
             ALLEXCEPT('ILSI', 'ILSI'[Appops]),
             FILTER(
                 ALL('ILSI'),
@@ -72,20 +93,20 @@ VAR ComptageParAppops =
         )
     )
 VAR AppopsWithNonZeroCounts = 
-    FILTER(ComptageParAppops, [CompteLignes] > 0)
+    FILTER(ComptageParAppops, [CompteSolutions] > 0)
 RETURN
-    MINX(AppopsWithNonZeroCounts, [CompteLignes])
+    MINX(AppopsWithNonZeroCounts, [CompteSolutions])
 ```
 
 ```dax
-MoyValueLignesTest = 
+MoyValueSolutionsTrimestre = 
 VAR AllAppops = ALL('ILSI'[Appops])
 VAR ComptageParAppops = 
     ADDCOLUMNS(
         FILTER(AllAppops, 'ILSI'[Appops] <> "Non pris"),
-        "CompteLignes",
+        "CompteSolutions",
         CALCULATE(
-            [Lignes Test A Faire],
+            [Solutions Avec Trimestre],
             ALLEXCEPT('ILSI', 'ILSI'[Appops]),
             FILTER(
                 ALL('ILSI'),
@@ -94,9 +115,13 @@ VAR ComptageParAppops =
         )
     )
 VAR AppopsWithNonZeroCounts = 
-    FILTER(ComptageParAppops, [CompteLignes] > 0)
+    FILTER(ComptageParAppops, [CompteSolutions] > 0)
 RETURN
-    INT(AVERAGEX(AppopsWithNonZeroCounts, [CompteLignes]))
+    INT(AVERAGEX(AppopsWithNonZeroCounts, [CompteSolutions]))
 ```
 
-Ces mesures comptent directement le nombre de lignes ayant des valeurs de test "actives" (différentes des 4 valeurs exclues) par Appops.
+**Logique de détection du trimestre :**
+- `LEFT(..., 1) = "T"` : vérifie que ça commence par "T"
+- `SEARCH("/", ..., 1, 0) > 0` : vérifie qu'il y a un "/" dans la chaîne
+
+Cela détectera tous les formats comme "T1/2025", "T2/2026", etc. 😊
