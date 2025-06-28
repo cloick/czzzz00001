@@ -1,39 +1,72 @@
-L'utilisateur veut maintenant les mesures DAX pour compter les lignes qui respectent les deux conditions :
-1. Valeur dans "Planification test : Tx/2025 ou Tx/2026" différente de "NA", "NR", "ILSI CAGIP", "ILSI externe"
-2. ET "Suivi 2025 Procédure formalisée" = "OUI"
+L'utilisateur confirme que j'ai bien compris la logique. Je dois maintenant créer les mesures DAX pour compter les solutions qui ont :
+1. Au moins une ligne avec un format trimestre "TX/AAAA"
+2. ET toutes les lignes avec format trimestre doivent avoir "OUI" dans "Suivi 2025 Test complet (calculé)"
 
-Je dois créer :
-1. Une mesure de base (Target) pour l'Appops sélectionné
-2. Max/Min/Moyenne qui excluent "Non pris" et ne réagissent pas au filtre du segment
+Je dois suivre le même pattern que les mesures précédentes :
+- Une mesure de base (target)
+- Max, Min, Moyenne qui excluent "Non pris" et ne réagissent pas au filtre segment
 
-La logique sera similaire aux mesures précédentes mais avec un double filtre.
+Pour la logique DAX :
+1. Je dois d'abord identifier les solutions qui ont au moins une ligne avec format trimestre
+2. Puis vérifier que toutes les lignes avec format trimestre de cette solution ont "OUI"
+3. Si les deux conditions sont remplies, compter la solution
 
-Parfait ! Voici les mesures pour compter les lignes avec la double condition :
+Je vais utiliser SUMMARIZE pour grouper par Id Solution, puis pour chaque solution :
+- Compter les lignes avec trimestre 
+- Compter les lignes avec trimestre ET "OUI"
+- Si les deux compteurs sont égaux ET > 0, alors la solution est comptée
+
+Parfait ! Voici les mesures pour compter les solutions avec trimestres complets :
 
 ## 1. Mesure de base (Target pour l'Appops sélectionné)
 
 ```dax
-Lignes Test Procedure OUI = 
-COUNTROWS(
-    FILTER(
+Solutions Trimestres Complets = 
+VAR SolutionsAvecTrimestresComplets = 
+    SUMMARIZE(
         ILSI,
-        NOT(ILSI[Planification test : Tx/2025 ou Tx/2026] IN {"NA", "NR", "ILSI CAGIP", "ILSI externe"}) &&
-        ILSI[Suivi 2025 Procédure formalisée] = "OUI"
+        ILSI[Id Solution],
+        "NbLignesAvecTrimestre", 
+        COUNTROWS(
+            FILTER(
+                ILSI,
+                ILSI[Id Solution] = EARLIER(ILSI[Id Solution]) &&
+                LEFT(ILSI[Planification test : Tx/2025 ou Tx/2026], 1) = "T" &&
+                SEARCH("/", ILSI[Planification test : Tx/2025 ou Tx/2026], 1, 0) > 0
+            )
+        ),
+        "NbLignesTrimestreOUI",
+        COUNTROWS(
+            FILTER(
+                ILSI,
+                ILSI[Id Solution] = EARLIER(ILSI[Id Solution]) &&
+                LEFT(ILSI[Planification test : Tx/2025 ou Tx/2026], 1) = "T" &&
+                SEARCH("/", ILSI[Planification test : Tx/2025 ou Tx/2026], 1, 0) > 0 &&
+                ILSI[Suivi 2025 Test complet (calculé)] = "OUI"
+            )
+        ),
+        "EstComplete",
+        IF(
+            [NbLignesAvecTrimestre] > 0 && [NbLignesAvecTrimestre] = [NbLignesTrimestreOUI],
+            1,
+            0
+        )
     )
-)
+RETURN
+    SUMX(FILTER(SolutionsAvecTrimestresComplets, [EstComplete] = 1), 1)
 ```
 
 ## 2. Mesures Max/Min/Moyenne (excluant "Non pris")
 
 ```dax
-MaxValueLignesTestProcedure = 
+MaxValueSolutionsTrimestreComplet = 
 VAR AllAppops = ALL('ILSI'[Appops])
 VAR ComptageParAppops = 
     ADDCOLUMNS(
         FILTER(AllAppops, 'ILSI'[Appops] <> "Non pris"),
-        "CompteLignes",
+        "CompteSolutions",
         CALCULATE(
-            [Lignes Test Procedure OUI],
+            [Solutions Trimestres Complets],
             ALLEXCEPT('ILSI', 'ILSI'[Appops]),
             FILTER(
                 ALL('ILSI'),
@@ -42,20 +75,20 @@ VAR ComptageParAppops =
         )
     )
 VAR AppopsWithNonZeroCounts = 
-    FILTER(ComptageParAppops, [CompteLignes] > 0)
+    FILTER(ComptageParAppops, [CompteSolutions] > 0)
 RETURN
-    MAXX(AppopsWithNonZeroCounts, [CompteLignes])
+    MAXX(AppopsWithNonZeroCounts, [CompteSolutions])
 ```
 
 ```dax
-MinValueLignesTestProcedure = 
+MinValueSolutionsTrimestreComplet = 
 VAR AllAppops = ALL('ILSI'[Appops])
 VAR ComptageParAppops = 
     ADDCOLUMNS(
         FILTER(AllAppops, 'ILSI'[Appops] <> "Non pris"),
-        "CompteLignes",
+        "CompteSolutions",
         CALCULATE(
-            [Lignes Test Procedure OUI],
+            [Solutions Trimestres Complets],
             ALLEXCEPT('ILSI', 'ILSI'[Appops]),
             FILTER(
                 ALL('ILSI'),
@@ -64,20 +97,20 @@ VAR ComptageParAppops =
         )
     )
 VAR AppopsWithNonZeroCounts = 
-    FILTER(ComptageParAppops, [CompteLignes] > 0)
+    FILTER(ComptageParAppops, [CompteSolutions] > 0)
 RETURN
-    MINX(AppopsWithNonZeroCounts, [CompteLignes])
+    MINX(AppopsWithNonZeroCounts, [CompteSolutions])
 ```
 
 ```dax
-MoyValueLignesTestProcedure = 
+MoyValueSolutionsTrimestreComplet = 
 VAR AllAppops = ALL('ILSI'[Appops])
 VAR ComptageParAppops = 
     ADDCOLUMNS(
         FILTER(AllAppops, 'ILSI'[Appops] <> "Non pris"),
-        "CompteLignes",
+        "CompteSolutions",
         CALCULATE(
-            [Lignes Test Procedure OUI],
+            [Solutions Trimestres Complets],
             ALLEXCEPT('ILSI', 'ILSI'[Appops]),
             FILTER(
                 ALL('ILSI'),
@@ -86,9 +119,9 @@ VAR ComptageParAppops =
         )
     )
 VAR AppopsWithNonZeroCounts = 
-    FILTER(ComptageParAppops, [CompteLignes] > 0)
+    FILTER(ComptageParAppops, [CompteSolutions] > 0)
 RETURN
-    INT(AVERAGEX(AppopsWithNonZeroCounts, [CompteLignes]))
+    INT(AVERAGEX(AppopsWithNonZeroCounts, [CompteSolutions]))
 ```
 
-**Key difference :** L'ajout du `&&` avec la condition `ILSI[Suivi 2025 Procédure formalisée] = "OUI"` pour appliquer le double filtre ! 😊
+**Logique clé :** On compare `NbLignesAvecTrimestre` = `NbLignesTrimestreOUI` pour s'assurer que **toutes** les lignes avec trimestre ont "OUI" ! 😊
