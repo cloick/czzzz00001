@@ -1,56 +1,113 @@
-Exactement ! Très bon ordre ! 🎯📅 ÉTAPE 1 : TRAITEMENT DES DATES# Identifier les colonnes de dates
-date_columns = ['approval_set', 'end_date', 'opened_at', 'start_date']
-date_cols_available = [col for col in date_columns if col in X_train.columns]
+Parfait ! Attaquons l'encodage ! 🚀🔍 ÉTAPE 1 : ANALYSER LES TYPES DE VARIABLES# Identifier les différents types de variables à encoder
+print("=== ANALYSE TYPES DE VARIABLES ===")
 
-print(f"Colonnes de dates trouvées: {date_cols_available}")
+# Variables object (catégorielles)
+categorical_cols = X_train.select_dtypes(include=['object']).columns.tolist()
+print(f"Variables catégorielles: {len(categorical_cols)}")
 
-# Convertir en datetime
-for col in date_cols_available:
-    print(f"Conversion {col}...")
-    X_train[col] = pd.to_datetime(X_train[col], errors='coerce')
-    X_test[col] = pd.to_datetime(X_test[col], errors='coerce')
-    
-    print(f"  - Valeurs nulles train: {X_train[col].isnull().sum()}")
-    print(f"  - Valeurs nulles test: {X_test[col].isnull().sum()}")🕐 ÉTAPE 2 : CRÉER FEATURES TEMPORELLES# Features temporelles sur opened_at (la plus importante)
-if 'opened_at' in X_train.columns:
-    print("Création features temporelles...")
-    
-    # TRAIN
-    X_train['opened_at_year'] = X_train['opened_at'].dt.year
-    X_train['opened_at_month'] = X_train['opened_at'].dt.month
-    X_train['opened_at_day_of_week'] = X_train['opened_at'].dt.dayofweek
-    X_train['opened_at_hour'] = X_train['opened_at'].dt.hour
-    X_train['opened_at_is_weekend'] = (X_train['opened_at'].dt.dayofweek >= 5).astype(int)
-    
-    # Features spécialisées identifiées dans notre analyse
-    X_train['is_risky_hour'] = X_train['opened_at_hour'].isin([5, 17, 18, 19]).astype(int)
-    X_train['is_end_of_day'] = X_train['opened_at_hour'].between(17, 19).astype(int)
-    X_train['is_peak_day'] = X_train['opened_at_day_of_week'].isin([0, 1]).astype(int)  # Lun/Mar
-    
-    # TEST (même transformations)
-    X_test['opened_at_year'] = X_test['opened_at'].dt.year
-    X_test['opened_at_month'] = X_test['opened_at'].dt.month
-    X_test['opened_at_day_of_week'] = X_test['opened_at'].dt.dayofweek
-    X_test['opened_at_hour'] = X_test['opened_at'].dt.hour
-    X_test['opened_at_is_weekend'] = (X_test['opened_at'].dt.dayofweek >= 5).astype(int)
-    X_test['is_risky_hour'] = X_test['opened_at_hour'].isin([5, 17, 18, 19]).astype(int)
-    X_test['is_end_of_day'] = X_test['opened_at_hour'].between(17, 19).astype(int)
-    X_test['is_peak_day'] = X_test['opened_at_day_of_week'].isin([0, 1]).astype(int)
+# Analyser la cardinalité de chaque variable catégorielle
+print("\nCARDINALITÉ DES VARIABLES CATÉGORIELLES:")
+cardinalite_info = []
 
-# Durée planifiée si start_date et end_date disponibles
-if 'start_date' in X_train.columns and 'end_date' in X_train.columns:
-    X_train['duree_planifiee'] = (X_train['end_date'] - X_train['start_date']).dt.total_seconds() / 3600
-    X_test['duree_planifiee'] = (X_test['end_date'] - X_test['start_date']).dt.total_seconds() / 3600
+for col in categorical_cols:
+    n_unique = X_train[col].nunique()
+    n_missing = X_train[col].isnull().sum()
+    cardinalite_info.append({
+        'colonne': col,
+        'cardinalite': n_unique,
+        'missing': n_missing,
+        'top_values': X_train[col].value_counts().head(3).to_dict()
+    })
+    print(f"{col:30s} | {n_unique:4d} catégories | {n_missing:4d} manquants")
 
-# Créer aussi la variable success pour éventuels calculs
-X_train['success'] = (y_train == 'Succès').astype(int)
-X_test['success'] = (y_test == 'Succès').astype(int)
+# Séparer par cardinalité
+low_cardinality = [info['colonne'] for info in cardinalite_info if info['cardinalite'] <= 10]
+medium_cardinality = [info['colonne'] for info in cardinalite_info if 10 < info['cardinalite'] <= 50]
+high_cardinality = [info['colonne'] for info in cardinalite_info if info['cardinalite'] > 50]
 
-print("✅ Features temporelles créées")🔧 ÉTAPE 3 : SUPPRIMER COLONNES DATES ORIGINALES# Supprimer les colonnes dates originales (plus besoin)
-cols_to_drop = [col for col in date_cols_available if col in X_train.columns]
-X_train = X_train.drop(columns=cols_to_drop)
-X_test = X_test.drop(columns=cols_to_drop)
+print(f"\n📊 RÉPARTITION:")
+print(f"Faible cardinalité (≤10): {len(low_cardinality)} → {low_cardinality}")
+print(f"Moyenne cardinalité (11-50): {len(medium_cardinality)} → {medium_cardinality}")
+print(f"Haute cardinalité (>50): {len(high_cardinality)} → {high_cardinality}")
 
-print(f"Colonnes supprimées: {cols_to_drop}")
-print(f"Shape final train: {X_train.shape}")
-print(f"Shape final test: {X_test.shape}")
+# Variables numériques et booléennes (déjà OK)
+numeric_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
+bool_cols = X_train.select_dtypes(include=['bool']).columns.tolist()
+
+print(f"\n✅ Variables numériques (OK): {len(numeric_cols)}")
+print(f"✅ Variables booléennes (OK): {len(bool_cols)}")🎯 ÉTAPE 2 : STRATÉGIE D'ENCODAGE PAR CARDINALITÉfrom sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+import pandas as pd
+
+print("\n=== STRATÉGIES D'ENCODAGE ===")
+
+# STRATÉGIE 1: OneHot pour faible cardinalité
+print(f"OneHot Encoding: {low_cardinality}")
+
+# STRATÉGIE 2: Label Encoding pour moyenne cardinalité  
+print(f"Label Encoding: {medium_cardinality}")
+
+# STRATÉGIE 3: Target Encoding ou regroupement pour haute cardinalité
+print(f"Traitement spécial: {high_cardinality}")🔧 ÉTAPE 3 : IMPLÉMENTATION ENCODAGE# Copier les datasets pour préserver originaux
+X_train_encoded = X_train.copy()
+X_test_encoded = X_test.copy()
+
+# 1. ONEHOT ENCODING (faible cardinalité)
+if low_cardinality:
+    print("🔄 OneHot Encoding...")
+    for col in low_cardinality:
+        # Créer dummies
+        train_dummies = pd.get_dummies(X_train_encoded[col], prefix=col, dummy_na=True)
+        test_dummies = pd.get_dummies(X_test_encoded[col], prefix=col, dummy_na=True)
+        
+        # Aligner les colonnes (train et test doivent avoir mêmes colonnes)
+        all_columns = train_dummies.columns.union(test_dummies.columns)
+        
+        for dummy_col in all_columns:
+            if dummy_col not in train_dummies.columns:
+                train_dummies[dummy_col] = 0
+            if dummy_col not in test_dummies.columns:
+                test_dummies[dummy_col] = 0
+        
+        # Réorganiser dans même ordre
+        train_dummies = train_dummies[all_columns]
+        test_dummies = test_dummies[all_columns]
+        
+        # Ajouter au dataset et supprimer colonne originale
+        X_train_encoded = pd.concat([X_train_encoded.drop(col, axis=1), train_dummies], axis=1)
+        X_test_encoded = pd.concat([X_test_encoded.drop(col, axis=1), test_dummies], axis=1)
+        
+        print(f"  ✅ {col}: {len(all_columns)} nouvelles colonnes")
+
+# 2. LABEL ENCODING (moyenne cardinalité)
+if medium_cardinality:
+    print("🔄 Label Encoding...")
+    for col in medium_cardinality:
+        le = LabelEncoder()
+        
+        # Fit sur train seulement
+        X_train_encoded[f'{col}_encoded'] = le.fit_transform(X_train_encoded[col].astype(str))
+        
+        # Transform test (gérer les nouvelles catégories)
+        test_labels = []
+        for value in X_test_encoded[col].astype(str):
+            if value in le.classes_:
+                test_labels.append(le.transform([value])[0])
+            else:
+                test_labels.append(-1)  # Catégorie inconnue
+        
+        X_test_encoded[f'{col}_encoded'] = test_labels
+        
+        # Supprimer colonne originale
+        X_train_encoded = X_train_encoded.drop(col, axis=1)
+        X_test_encoded = X_test_encoded.drop(col, axis=1)
+        
+        print(f"  ✅ {col}: encodé en numérique")
+
+print(f"\n🎯 Shape final:")
+print(f"Train: {X_train_encoded.shape}")
+print(f"Test: {X_test_encoded.shape}")
+
+# Vérifier qu'on n'a plus d'object
+remaining_objects = X_train_encoded.select_dtypes(include=['object']).columns.tolist()
+print(f"\nColonnes object restantes: {remaining_objects}")
