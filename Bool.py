@@ -1,31 +1,29 @@
 def encodage(df):
-    """Version améliorée avec target encoding pour haute cardinalité"""
+    """Version avec regroupement pour haute cardinalité"""
     
     df_encoded = df.copy()
-    high_cardinality_cols = ['dv_assignment_group']  
+    high_cardinality_threshold = 100  # Seuil à ajuster
     
     for col in df_encoded.select_dtypes('object').columns:
         if col != 'dv_close_code':
             
-            if col in high_cardinality_cols and 'dv_close_code' in df_encoded.columns:
-                # TARGET ENCODING pour haute cardinalité
-                print(f"Target encoding pour {col}")
+            unique_count = df_encoded[col].nunique()
+            
+            if unique_count > high_cardinality_threshold:
+                # REGROUPEMENT pour haute cardinalité
+                print(f"Regroupement {col}: {unique_count} → TOP {high_cardinality_threshold} + Others")
                 
-                # Calculer taux de succès par équipe
-                target_means = df_encoded.groupby(col)['dv_close_code'].apply(
-                    lambda x: (x == 'Succès').mean()
+                # Garder les TOP catégories les plus fréquentes
+                top_categories = df_encoded[col].value_counts().head(high_cardinality_threshold).index
+                df_encoded[col] = df_encoded[col].apply(
+                    lambda x: x if x in top_categories else 'Others'
                 )
                 
-                # Remplacer par le taux de succès moyen
-                df_encoded[f'{col}_success_rate'] = df_encoded[col].map(target_means)
-                
-                # Supprimer la colonne originale
-                df_encoded = df_encoded.drop(col, axis=1)
-                
-            else:
-                # LABEL ENCODING pour le reste
-                from sklearn.preprocessing import LabelEncoder
-                le = LabelEncoder()
-                df_encoded[col] = le.fit_transform(df_encoded[col].astype(str))
+                print(f"Après regroupement: {df_encoded[col].nunique()} catégories")
+            
+            # LABEL ENCODING pour toutes les variables
+            from sklearn.preprocessing import LabelEncoder
+            le = LabelEncoder()
+            df_encoded[col] = le.fit_transform(df_encoded[col].astype(str))
     
     return df_encoded
