@@ -196,3 +196,12 @@ if 'start_date' in df_final.columns and 'end_date' in df_final.columns:
     plt.title('Durée planifiée vs Résultat')
     plt.xticks(rotation=45)
     plt.show()
+
+
+
+
+
+
+_______________________________
+
+Salut [Nom du manager],J'ai réfléchi à ta proposition d'interface web pour le scoring des changements et je pense qu'on peut faire beaucoup plus simple ! En fait, créer une interface web complète qui reproduit tous les formulaires ServiceNow serait un gros projet de développement (plusieurs mois) car il faudrait recoder tous les champs, listes déroulantes, validations etc. C'est ironiquement plus complexe qu'une intégration API. Mais j'ai une meilleure idée : on a déjà accès aux tables ServiceNow via Snow Mirror dans Dataiku, donc on peut créer une webapp simple directement dans Dataiku avec juste les 5-6 champs essentiels pour le scoring (type de changement, environnement, criticité...). L'utilisateur saisit les infos de son changement prévu, et hop, il obtient un score de risque immédiatement. C'est beaucoup plus léger à développer, ça utilise notre infrastructure existante, et ça répond exactement au besoin de scorer un changement AVANT de le valider. Qu'est-ce que tu en penses ? On pourrait avoir un prototype en quelques semaines plutôt qu'en plusieurs mois.
