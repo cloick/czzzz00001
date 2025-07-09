@@ -1,199 +1,257 @@
-L'utilisateur veut que je propose plusieurs modèles qui pourraient bien performer pour son problème de classification binaire déséquilibrée. Il a actuellement un Random Forest avec k=5 features et class_weight='balanced' qui donne de bons résultats (49.75% de recall sur les problèmes).
+L'utilisateur veut optimiser les 5 premiers modèles (LogisticRegression, BalancedRF, XGBoost, LightGBM, RandomForest_Balanced) avec RandomizedSearchCV. Je vois que LogisticRegression est arrivé en tête avec 53.4% de recall, suivi de très près par les autres modèles.
 
-Je dois regarder son code actuel :
-- Il utilise SelectKBest avec k=5 
-- Il applique class_weight='balanced' 
-- Il a une fonction evaluation() qui prend des paramètres optionnels
-- Il veut tester plusieurs modèles et garder le style de son code
+Il veut :
+1. Optimiser ces 5 modèles avec RandomizedSearchCV
+2. Beaucoup d'itérations (200+) 
+3. Une comparaison finale avec les meilleurs scores
 
-Pour un problème de classification binaire déséquilibrée, les modèles intéressants seraient :
+Je dois créer une fonction qui :
+- Définit les hyperparamètres pour chaque modèle
+- Lance RandomizedSearchCV pour chacun
+- Compare les résultats finaux
+- Utilise le même preprocessing (SelectKBest k=5)
 
-1. **RandomForest** (baseline actuel) - avec class_weight='balanced'
-2. **XGBoost** - très bon pour les problèmes déséquilibrés avec scale_pos_weight
-3. **LightGBM** - similaire à XGBoost, souvent plus rapide
-4. **LogisticRegression** - simple mais efficace avec class_weight='balanced'
-5. **BalancedRandomForest** - spécialement conçu pour les données déséquilibrées
-6. **AdaBoost** - peut être intéressant avec class_weight
-7. **SVM** - avec class_weight='balanced'
+Pour chaque modèle, je dois définir les hyperparamètres les plus importants :
 
-Je vais proposer un code qui s'intègre bien avec son style actuel, en utilisant sa fonction evaluation() et en gardant SelectKBest k=5 puisque c'est optimal.
+1. LogisticRegression : C, penalty, solver, max_iter
+2. BalancedRF : n_estimators, max_depth, min_samples_split, min_samples_leaf, sampling_strategy
+3. XGBoost : n_estimators, max_depth, learning_rate, subsample, colsample_bytree, reg_alpha, reg_lambda
+4. LightGBM : n_estimators, max_depth, learning_rate, num_leaves, min_data_in_leaf, feature_fraction
+5. RandomForest_Balanced : n_estimators, max_depth, min_samples_split, min_samples_leaf, max_features
 
-Je dois faire attention à :
-- Utiliser les bonnes techniques pour chaque modèle (class_weight, scale_pos_weight, etc.)
-- Garder le même style de code
-- Proposer des modèles vraiment adaptés au problème déséquilibré
+Je vais utiliser 'recall' comme scoring puisque c'est leur objectif principal.
 
+Excellents résultats ! **LogisticRegression** arrive en tête avec 53.4% de recall 🎯
 
-- Utiliser sa fonction evaluation() existante
-
-Je vais intégrer sa fonction d'évaluation comme méthode principale pour comparer les performances des différents modèles. Cela permettra de maintenir une approche cohérente et de facilement comparer les résultats de chaque algorithme en utilisant les mêmes métriques d'évaluation.
-
-Parfait ! En tant que senior data scientist, voici ma sélection de modèles **spécialement adaptés aux problèmes de classification déséquilibrée** comme le vôtre.
-
-## 🎯 **Modèles recommandés pour votre cas d'usage :**
+Voici la fonction d'optimisation complète pour les 5 meilleurs modèles :
 
 ```python
-def test_multiple_models():
-    """Tester plusieurs modèles optimisés pour classification déséquilibrée"""
+def optimize_top_models():
+    """Optimisation par RandomizedSearchCV des 5 meilleurs modèles"""
     
-    from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+    # === IMPORTS ===
+    global pd
+    import numpy as np
+    from sklearn.model_selection import RandomizedSearchCV
+    from sklearn.ensemble import RandomForestClassifier
     from sklearn.linear_model import LogisticRegression
-    from sklearn.svm import SVC
+    from sklearn.feature_selection import SelectKBest, f_classif
+    from sklearn.metrics import confusion_matrix, classification_report
     from xgboost import XGBClassifier
     from lightgbm import LGBMClassifier
     from imblearn.ensemble import BalancedRandomForestClassifier
     
-    # Preprocessing avec SelectKBest k=5 (optimal trouvé)
+    # === PREPROCESSING (SelectKBest k=5) ===
     selector = SelectKBest(score_func=f_classif, k=5)
     X_train_selected = selector.fit_transform(X_train, y_train)
     X_test_selected = selector.transform(X_test)
     
-    # Convertir en DataFrame pour garder les noms
     selected_features = X_train.columns[selector.get_support()]
     X_train_sel = pd.DataFrame(X_train_selected, columns=selected_features)
     X_test_sel = pd.DataFrame(X_test_selected, columns=selected_features)
     
     print(f"Features sélectionnées (5): {list(selected_features)}")
     
-    # Calcul du ratio pour XGBoost/LightGBM
-    neg_pos_ratio = (y_train == 0).sum() / (y_train == 1).sum()
+    # === DÉFINITION DES HYPERPARAMÈTRES ===
     
-    # === MODÈLES OPTIMISÉS POUR DÉSÉQUILIBRE ===
-    models_to_test = {
-        
-        # 1. Baseline actuel (Random Forest)
-        'RandomForest_Balanced': RandomForestClassifier(
-            class_weight='balanced',
-            random_state=42,
-            n_estimators=200
-        ),
-        
-        # 2. XGBoost - Excellent pour déséquilibré 
-        'XGBoost': XGBClassifier(
-            scale_pos_weight=neg_pos_ratio,  # Gère automatiquement le déséquilibre
-            random_state=42,
-            n_estimators=200,
-            max_depth=6,
-            learning_rate=0.1,
-            eval_metric='logloss'
-        ),
-        
-        # 3. LightGBM - Souvent meilleur que XGBoost
-        'LightGBM': LGBMClassifier(
-            class_weight='balanced',
-            random_state=42,
-            n_estimators=200,
-            max_depth=6,
-            learning_rate=0.1,
-            verbose=-1
-        ),
-        
-        # 4. Balanced Random Forest - Spécialement conçu pour déséquilibre
-        'BalancedRF': BalancedRandomForestClassifier(
-            random_state=42,
-            n_estimators=200,
-            sampling_strategy='auto'  # Balance automatiquement
-        ),
-        
-        # 5. Logistic Regression - Simple mais souvent efficace
-        'LogisticRegression': LogisticRegression(
-            class_weight='balanced',
-            random_state=42,
-            max_iter=1000,
-            solver='liblinear'  # Bon pour données moyennes
-        ),
-        
-        # 6. SVM - Peut être très bon avec les bonnes features
-        'SVM_Balanced': SVC(
-            class_weight='balanced',
-            random_state=42,
-            kernel='rbf',
-            probability=True  # Pour pouvoir ajuster le seuil après
-        ),
-        
-        # 7. AdaBoost avec échantillonnage adaptatif
-        'AdaBoost': AdaBoostClassifier(
-            random_state=42,
-            n_estimators=200,
-            learning_rate=1.0,
-            algorithm='SAMME'  # Meilleur pour classification
-        )
+    # 1. LogisticRegression (Champion actuel)
+    logistic_params = {
+        'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+        'penalty': ['l1', 'l2', 'elasticnet'],
+        'solver': ['liblinear', 'saga', 'lbfgs'],
+        'max_iter': [500, 1000, 2000, 3000],
+        'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9]  # Pour elasticnet
     }
     
-    # === ÉVALUATION DE TOUS LES MODÈLES ===
-    results_summary = {}
+    # 2. BalancedRF
+    balanced_rf_params = {
+        'n_estimators': [100, 200, 300, 500, 800],
+        'max_depth': [3, 5, 7, 10, 15, 20, None],
+        'min_samples_split': [2, 5, 10, 15, 20],
+        'min_samples_leaf': [1, 2, 4, 8, 12],
+        'sampling_strategy': ['auto', 'majority', 'not minority'],
+        'bootstrap': [True, False]
+    }
     
-    for name, model in models_to_test.items():
-        print(f"\n{'='*70}")
-        print(f"=== {name} ===")
-        print(f"{'='*70}")
+    # 3. XGBoost
+    xgb_params = {
+        'n_estimators': [100, 200, 300, 500, 800],
+        'max_depth': [3, 4, 5, 6, 7, 8],
+        'learning_rate': [0.01, 0.05, 0.1, 0.15, 0.2, 0.3],
+        'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
+        'reg_alpha': [0, 0.1, 0.5, 1, 2],
+        'reg_lambda': [0, 0.1, 0.5, 1, 2],
+        'min_child_weight': [1, 3, 5, 7]
+    }
+    
+    # 4. LightGBM
+    lgb_params = {
+        'n_estimators': [100, 200, 300, 500, 800],
+        'max_depth': [3, 4, 5, 6, 7, 8, -1],
+        'learning_rate': [0.01, 0.05, 0.1, 0.15, 0.2, 0.3],
+        'num_leaves': [20, 31, 50, 80, 100, 150],
+        'min_data_in_leaf': [5, 10, 20, 30, 50],
+        'feature_fraction': [0.6, 0.7, 0.8, 0.9, 1.0],
+        'bagging_fraction': [0.6, 0.7, 0.8, 0.9, 1.0],
+        'bagging_freq': [0, 1, 5, 10],
+        'reg_alpha': [0, 0.1, 0.5, 1],
+        'reg_lambda': [0, 0.1, 0.5, 1]
+    }
+    
+    # 5. RandomForest_Balanced
+    rf_params = {
+        'n_estimators': [100, 200, 300, 500, 800],
+        'max_depth': [3, 5, 7, 10, 15, 20, None],
+        'min_samples_split': [2, 5, 10, 15, 20],
+        'min_samples_leaf': [1, 2, 4, 8, 12],
+        'max_features': ['sqrt', 'log2', None, 0.5, 0.7],
+        'bootstrap': [True, False],
+        'criterion': ['gini', 'entropy']
+    }
+    
+    # === MODÈLES ET PARAMÈTRES ===
+    models_to_optimize = {
+        'LogisticRegression': {
+            'model': LogisticRegression(class_weight='balanced', random_state=42),
+            'params': logistic_params
+        },
+        'BalancedRF': {
+            'model': BalancedRandomForestClassifier(random_state=42),
+            'params': balanced_rf_params
+        },
+        'XGBoost': {
+            'model': XGBClassifier(
+                scale_pos_weight=(y_train == 0).sum() / (y_train == 1).sum(),
+                random_state=42,
+                eval_metric='logloss'
+            ),
+            'params': xgb_params
+        },
+        'LightGBM': {
+            'model': LGBMClassifier(
+                class_weight='balanced',
+                random_state=42,
+                verbose=-1
+            ),
+            'params': lgb_params
+        },
+        'RandomForest_Balanced': {
+            'model': RandomForestClassifier(class_weight='balanced', random_state=42),
+            'params': rf_params
+        }
+    }
+    
+    # === OPTIMISATION ===
+    optimized_results = {}
+    best_models = {}
+    
+    for name, config in models_to_optimize.items():
+        print(f"\n{'='*80}")
+        print(f"=== OPTIMISATION {name} ===")
+        print(f"{'='*80}")
+        print(f"Nombre de paramètres à tester: {len(config['params'])}")
+        print("🔄 Lancement RandomizedSearchCV (peut prendre du temps...)...")
+        
+        # RandomizedSearchCV avec beaucoup d'itérations
+        search = RandomizedSearchCV(
+            estimator=config['model'],
+            param_distributions=config['params'],
+            scoring='recall',  # Objectif principal
+            cv=4,
+            n_iter=250,  # Beaucoup d'itérations comme demandé
+            random_state=42,
+            n_jobs=-1,  # Utiliser tous les cores
+            verbose=1
+        )
         
         try:
-            # Utiliser votre fonction evaluation existante
-            trained_model = evaluation(model, X_train_sel, y_train, X_test_sel, y_test)
+            # Lancement de l'optimisation
+            search.fit(X_train_sel, y_train)
             
-            # Extraire les métriques pour comparaison
-            y_pred = trained_model.predict(X_test_sel)
+            # Récupération du meilleur modèle
+            best_model = search.best_estimator_
+            best_models[name] = best_model
+            
+            # Prédictions avec le meilleur modèle
+            y_pred = best_model.predict(X_test_sel)
+            
+            # Métriques
             cm = confusion_matrix(y_test, y_pred)
+            recall_probleme = cm[0,0] / (cm[0,0] + cm[0,1])
+            precision_probleme = cm[0,0] / (cm[0,0] + cm[1,0]) if (cm[0,0] + cm[1,0]) > 0 else 0
+            fausses_alertes = cm[1,0]
+            f1_probleme = 2 * (precision_probleme * recall_probleme) / (precision_probleme + recall_probleme) if (precision_probleme + recall_probleme) > 0 else 0
             
-            if cm.shape == (2,2):
-                recall_probleme = cm[0,0] / (cm[0,0] + cm[0,1])
-                precision_probleme = cm[0,0] / (cm[0,0] + cm[1,0]) if (cm[0,0] + cm[1,0]) > 0 else 0
-                fausses_alertes = cm[1,0]
-                
-                results_summary[name] = {
-                    'recall_probleme': recall_probleme,
-                    'precision_probleme': precision_probleme,
-                    'fausses_alertes': fausses_alertes,
-                    'f1_probleme': 2 * (precision_probleme * recall_probleme) / (precision_probleme + recall_probleme) if (precision_probleme + recall_probleme) > 0 else 0
-                }
-                
-                print(f"\n🎯 RÉSUMÉ {name}:")
-                print(f"Recall Problème: {recall_probleme:.3f}")
-                print(f"Precision Problème: {precision_probleme:.3f}")
-                print(f"Fausses Alertes: {fausses_alertes}")
-        
+            optimized_results[name] = {
+                'best_score': search.best_score_,
+                'best_params': search.best_params_,
+                'recall_probleme': recall_probleme,
+                'precision_probleme': precision_probleme,
+                'fausses_alertes': fausses_alertes,
+                'f1_probleme': f1_probleme
+            }
+            
+            print(f"✅ {name} TERMINÉ !")
+            print(f"Meilleur score CV: {search.best_score_:.4f}")
+            print(f"Recall test: {recall_probleme:.4f}")
+            print(f"Precision test: {precision_probleme:.4f}")
+            print(f"Meilleurs paramètres: {search.best_params_}")
+            
         except Exception as e:
             print(f"❌ Erreur avec {name}: {e}")
             continue
     
-    # === TABLEAU COMPARATIF FINAL ===
-    print(f"\n{'='*80}")
-    print("=== COMPARAISON FINALE DES MODÈLES ===")
-    print(f"{'='*80}")
+    # === COMPARAISON FINALE ===
+    print(f"\n{'='*100}")
+    print("=== COMPARAISON FINALE DES MODÈLES OPTIMISÉS ===")
+    print(f"{'='*100}")
     
-    if results_summary:
-        import pandas as pd
-        df_results = pd.DataFrame(results_summary).T
-        df_results = df_results.sort_values('recall_probleme', ascending=False)
+    if optimized_results:
+        # Créer DataFrame de comparaison
+        comparison_df = pd.DataFrame(optimized_results).T
+        comparison_df = comparison_df.sort_values('recall_probleme', ascending=False)
         
-        print("\n📊 CLASSEMENT PAR RECALL PROBLÈME (Détection):")
-        print(df_results[['recall_probleme', 'precision_probleme', 'fausses_alertes', 'f1_probleme']].round(3))
+        print("\n📊 CLASSEMENT PAR RECALL PROBLÈME (Test Set):")
+        print(comparison_df[['recall_probleme', 'precision_probleme', 'fausses_alertes', 'f1_probleme', 'best_score']].round(4))
         
-        # Recommandation
-        best_recall = df_results.index[0]
-        best_precision = df_results.sort_values('precision_probleme', ascending=False).index[0]
-        best_f1 = df_results.sort_values('f1_probleme', ascending=False).index[0]
+        # Recommandations
+        best_recall = comparison_df.index[0]
+        best_precision = comparison_df.sort_values('precision_probleme', ascending=False).index[0]
+        best_f1 = comparison_df.sort_values('f1_probleme', ascending=False).index[0]
+        best_cv = comparison_df.sort_values('best_score', ascending=False).index[0]
         
-        print(f"\n🏆 RECOMMANDATIONS:")
-        print(f"Meilleur RECALL (détection): {best_recall}")
-        print(f"Meilleure PRECISION (fiabilité): {best_precision}")
-        print(f"Meilleur F1 (équilibre): {best_f1}")
+        print(f"\n🏆 CHAMPIONS APRÈS OPTIMISATION:")
+        print(f"🎯 Meilleur RECALL (détection): {best_recall} - {comparison_df.loc[best_recall, 'recall_probleme']:.4f}")
+        print(f"🔍 Meilleure PRECISION (fiabilité): {best_precision} - {comparison_df.loc[best_precision, 'precision_probleme']:.4f}")
+        print(f"⚖️  Meilleur F1 (équilibre): {best_f1} - {comparison_df.loc[best_f1, 'f1_probleme']:.4f}")
+        print(f"📈 Meilleur CV Score: {best_cv} - {comparison_df.loc[best_cv, 'best_score']:.4f}")
+        
+        # Amélioration vs baseline
+        baseline_recall = 0.534  # LogisticRegression non optimisé
+        best_optimized_recall = comparison_df.loc[best_recall, 'recall_probleme']
+        improvement = best_optimized_recall - baseline_recall
+        
+        print(f"\n📈 AMÉLIORATION vs BASELINE:")
+        print(f"Baseline (LogisticRegression): {baseline_recall:.4f}")
+        print(f"Meilleur optimisé: {best_optimized_recall:.4f}")
+        print(f"Gain: {improvement:+.4f} ({improvement/baseline_recall*100:+.2f}%)")
     
-    return results_summary
+    return optimized_results, best_models
 
-# Lancer les tests
-results = test_multiple_models()
+# === LANCEMENT DE L'OPTIMISATION ===
+print("🚀 DÉMARRAGE DE L'OPTIMISATION DES 5 MEILLEURS MODÈLES")
+print("⏰ Cela peut prendre plusieurs heures...")
+
+optimized_results, best_models = optimize_top_models()
 ```
 
-## 🧠 **Pourquoi ces modèles spécifiquement ?**
+**Cette fonction va :**
+1. **Optimiser chaque modèle** avec 250 itérations RandomizedSearchCV
+2. **Comparer les performances** optimisées
+3. **Identifier le champion final** pour votre cas d'usage
+4. **Calculer l'amélioration** vs votre baseline actuel
 
-1. **XGBoost/LightGBM** : Excellent pour déséquilibre avec `scale_pos_weight`
-2. **BalancedRandomForest** : Conçu spécialement pour votre problème
-3. **LogisticRegression** : Simple, rapide, souvent surprenant sur des données bien préparées
-4. **SVM** : Peut être très bon avec les bonnes features (vous en avez 5 optimales)
+**Temps estimé :** 2-4 heures selon votre machine 🕐
 
-## 🎯 **Objectif :**
-Identifier le modèle qui dépasse votre baseline de **49.75% de recall** tout en maintenant une precision acceptable !
-
-Lancez ce code et montrez-moi les résultats ! 📊
+Lancez et tenez-moi au courant des résultats ! 🎯
