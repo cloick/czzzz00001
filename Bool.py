@@ -1,110 +1,105 @@
-L'utilisateur fait une observation très pertinente. En effet, dans les résultats d'optimisation bayésienne et RandomizedSearchCV, ils avaient obtenu pour LogisticRegression :
-- recall_probleme: 0.5436 
-- precision_probleme: 0.14239
-- fausses_alertes: 1313
+L'utilisateur a une erreur NameError pour 'X_train_del'. En regardant le code que j'ai fourni, je vois que j'ai utilisé X_train_sel et X_test_sel dans la fonction debug, mais il se peut que ces variables ne soient pas définies dans le scope global ou qu'il y ait une typo.
 
-Mais maintenant dans l'analyse des seuils, ils testent des seuils de 0.1 à 0.9 et les résultats sont complètement différents. À 0.5 (seuil par défaut), ils obtiennent :
-- recall: 0.456
-- precision: 0.082
-- fausses_alertes: 2046
+Je dois corriger la fonction debug en m'assurant que:
+1. J'utilise les bonnes variables 
+2. Je refais le preprocessing si nécessaire
+3. Je corrige toute erreur de typo
 
-Il y a clairement une incohérence. Plusieurs explications possibles :
+Je vois que dans les fonctions précédentes, nous utilisions X_train_sel et X_test_sel après le SelectKBest. Il faut que je m'assure que ces variables sont bien définies ou que je les recrée dans la fonction debug.
 
-1. **Problème dans la fonction threshold_optimization** : La façon dont les métriques sont calculées pourrait être incorrecte. Il pourrait y avoir une inversion dans la matrice de confusion ou dans l'interprétation des classes.
-
-2. **Problème de modèle** : Ils n'utilisent peut-être pas exactement le même modèle optimisé dans la fonction threshold_optimization.
-
-3. **Problème de données** : Les données utilisées pour l'optimisation et pour l'analyse des seuils pourraient être différentes.
-
-4. **Erreur dans l'analyse des seuils** : La logique de calcul des métriques dans threshold_optimization pourrait être fausse.
-
-L'utilisateur a raison de soulever cette incohérence. C'est un problème important à résoudre avant de tirer des conclusions.
-
-Regardons les métriques : dans l'optimisation, à seuil 0.5 par défaut, ils avaient 54% de recall et 14% de precision. Dans l'analyse des seuils à 0.5, ils ont 45% de recall et 8% de precision. 
-
-Les écarts sont significatifs et nécessitent une investigation approfondie. Je dois examiner chaque étape du processus pour comprendre l'origine de ces divergences.
-
-## 🚨 **EXCELLENTE OBSERVATION ! Incohérence majeure détectée**
-
-**Vous avez absolument raison !** Il y a une **contradiction flagrante** :
-
-### 📊 **Comparaison des résultats :**
-
-| Source | Seuil | Recall | Precision | Fausses Alertes |
-|--------|-------|--------|-----------|-----------------|
-| **Optimisation (RandomSearch/Bayesian)** | 0.5 (défaut) | **54.36%** | **14.24%** | **1313** |
-| **Analyse seuils** | 0.5 | **45.6%** | **8.2%** | **2046** |
-
-## 🔍 **CAUSES POSSIBLES :**
-
-### **1. Problème dans `threshold_optimization()` :**
-```python
-# Suspicion : Erreur dans le calcul des métriques
-# Vérification nécessaire de cette partie :
-recall_probleme = tn / (tn + fp) if (tn + fp) > 0 else 0
-precision_probleme = tn / (tn + fn) if (tn + fn) > 0 else 0
-```
-
-### **2. Modèles différents utilisés :**
-- Optimisation : Modèle avec hyperparamètres optimisés
-- Seuils : Peut-être modèle par défaut ?
-
-### **3. Données différentes :**
-- Train/test split différent ?
-- Preprocessing différent ?
-
-## 🛠️ **DEBUG IMMÉDIAT NÉCESSAIRE :**
+**Ah ! Erreur de variable.** Voici la version corrigée avec le preprocessing inclus :
 
 ```python
 def debug_threshold_inconsistency():
-    """Identifier l'origine de l'incohérence"""
+    """Identifier l'origine de l'incohérence - Version corrigée"""
+    
+    # === REFAIRE LE PREPROCESSING POUR ÊTRE SÛR ===
+    from sklearn.feature_selection import SelectKBest, f_classif
+    from sklearn.metrics import confusion_matrix, classification_report
+    import numpy as np
+    
+    selector = SelectKBest(score_func=f_classif, k=5)
+    X_train_selected = selector.fit_transform(X_train, y_train)
+    X_test_selected = selector.transform(X_test)
+    
+    selected_features = X_train.columns[selector.get_support()]
+    X_train_sel = pd.DataFrame(X_train_selected, columns=selected_features)
+    X_test_sel = pd.DataFrame(X_test_selected, columns=selected_features)
+    
+    print(f"Features sélectionnées: {list(selected_features)}")
+    print(f"Shape train: {X_train_sel.shape}, Shape test: {X_test_sel.shape}")
     
     # 1. VÉRIFIER LE MODÈLE UTILISÉ
-    print("=== VÉRIFICATION DU MODÈLE ===")
+    print("\n=== VÉRIFICATION DU MODÈLE ===")
     model = bayesian_models['LogisticRegression']  # Modèle optimisé
     print(f"Paramètres du modèle: {model.get_params()}")
     
     # 2. REPRODUIRE LE RÉSULTAT D'OPTIMISATION
+    print("\n=== ENTRAÎNEMENT ET PRÉDICTION ===")
     model.fit(X_train_sel, y_train)
     y_pred_default = model.predict(X_test_sel)
     
     cm_default = confusion_matrix(y_test, y_pred_default)
-    print(f"Matrice confusion seuil défaut: \n{cm_default}")
+    print(f"Matrice confusion predict() défaut: \n{cm_default}")
     
-    # 3. VÉRIFIER LES MÉTRIQUES AVEC SEUIL 0.5
-    y_proba = model.predict_proba(X_test_sel)[:, 0]  # Proba problème
-    y_pred_05 = (y_proba >= 0.5).astype(int)
+    # 3. VÉRIFIER LES MÉTRIQUES AVEC SEUIL 0.5 MANUEL
+    print("\n=== PRÉDICTION AVEC SEUIL 0.5 MANUEL ===")
+    y_proba = model.predict_proba(X_test_sel)
+    print(f"Shape probabilités: {y_proba.shape}")
+    print(f"Premiers exemples proba: \n{y_proba[:5]}")
+    
+    # Proba de la classe 0 (problème)
+    y_proba_probleme = y_proba[:, 0]  
+    y_pred_05 = (y_proba_probleme >= 0.5).astype(int)
     
     cm_05 = confusion_matrix(y_test, y_pred_05)
-    print(f"Matrice confusion seuil 0.5: \n{cm_05}")
+    print(f"Matrice confusion seuil 0.5 manuel: \n{cm_05}")
     
     # 4. CALCULER MÉTRIQUES DES DEUX FAÇONS
-    from sklearn.metrics import classification_report
-    print("=== MÉTRIQUES PREDICT() DEFAULT ===")
+    print("\n=== MÉTRIQUES PREDICT() DEFAULT ===")
     print(classification_report(y_test, y_pred_default))
     
-    print("=== MÉTRIQUES SEUIL 0.5 MANUEL ===")
+    print("\n=== MÉTRIQUES SEUIL 0.5 MANUEL ===")
     print(classification_report(y_test, y_pred_05))
     
     # 5. VÉRIFIER SI MÊME RÉSULTAT
     are_same = np.array_equal(y_pred_default, y_pred_05)
+    print(f"\n=== COMPARAISON ===")
     print(f"Prédictions identiques: {are_same}")
     
-    return model, y_pred_default, y_pred_05
+    if not are_same:
+        diff_count = np.sum(y_pred_default != y_pred_05)
+        print(f"Nombre de différences: {diff_count}")
+        
+        # Analyser les différences
+        print(f"Défaut - 0: {np.sum(y_pred_default == 0)}, 1: {np.sum(y_pred_default == 1)}")
+        print(f"Manuel - 0: {np.sum(y_pred_05 == 0)}, 1: {np.sum(y_pred_05 == 1)}")
+    
+    # 6. CALCULER MANUELLEMENT LES MÉTRIQUES COMME DANS L'OPTIMISATION
+    print("\n=== CALCUL MANUEL MÉTRIQUES (STYLE OPTIMISATION) ===")
+    tn, fp, fn, tp = cm_default.ravel()
+    
+    # Métriques pour classe 0 (problème)
+    recall_probleme = tn / (tn + fp) if (tn + fp) > 0 else 0
+    precision_probleme = tn / (tn + fn) if (tn + fn) > 0 else 0
+    fausses_alertes = fn
+    
+    print(f"TN: {tn}, FP: {fp}, FN: {fn}, TP: {tp}")
+    print(f"Recall problème: {recall_probleme:.4f}")
+    print(f"Precision problème: {precision_probleme:.4f}")  
+    print(f"Fausses alertes: {fausses_alertes}")
+    
+    return model, y_pred_default, y_pred_05, y_proba
 
 # Lancer le debug
-model, pred_default, pred_05 = debug_threshold_inconsistency()
+print("🔍 DEBUG DE L'INCOHÉRENCE")
+model, pred_default, pred_05, proba = debug_threshold_inconsistency()
 ```
 
-## 🎯 **HYPOTHÈSE PRINCIPALE :**
+**Cette version :**
+1. **Recrée le preprocessing** pour éviter les erreurs de variables
+2. **Compare predict() vs seuil manuel**
+3. **Affiche les matrices de confusion** des deux méthodes
+4. **Calcule manuellement** les métriques comme dans l'optimisation
 
-**Problème probable :** Dans `threshold_optimization()`, il y a potentiellement :
-- Inversion des classes dans la matrice de confusion
-- Erreur dans le calcul recall/precision  
-- Utilisation d'un modèle différent
-
-## 🚀 **ACTION IMMÉDIATE :**
-
-**Lancez le debug ci-dessus** et montrez-moi les résultats. Cette incohérence invalide complètement notre analyse des seuils !
-
-**Il faut corriger ça AVANT de continuer** 🔧
+**Lancez ça et on va identifier d'où vient l'incohérence !** 🔍
