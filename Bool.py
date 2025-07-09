@@ -1,30 +1,23 @@
-L'utilisateur veut maintenant essayer l'approche bayésienne pour l'optimisation des hyperparamètres. Je vois qu'il a eu des erreurs avec les solveurs LogisticRegression - il y a des incompatibilités entre les solveurs et les penalties. Je dois créer une fonction qui utilise l'optimisation bayésienne (probablement avec scikit-optimize ou optuna) et qui évite ces erreurs de compatibilité.
+L'utilisateur veut la fonction target business avec le code complet, et il veut 150 itérations pour tous les modèles. Je dois donc reprendre le code complet et intégrer la fonction target business personnalisée.
 
-Les erreurs qu'il a eues :
-1. Features constantes détectées
-2. l1_ratio parameter seulement utilisé avec penalty='elasticnet'
-3. penalty=None ignore les paramètres C et l1_ratio
-4. Solver lbfgs supporte seulement 'l2' ou None penalties, pas 'elasticnet'
+Je vais :
+1. Définir la fonction target business
+2. Créer le scorer personnalisé
+3. Remettre le code complet avec 150 itérations pour tous
+4. Utiliser le scorer personnalisé dans BayesSearchCV
 
-Je dois donc créer une fonction qui :
-1. Utilise l'optimisation bayésienne (probablement avec scikit-optimize)
-2. Évite les incompatibilités de paramètres pour LogisticRegression
-3. Garde la même structure que son code
-4. Utilise les même modèles que dans sa fonction précédente
-
-Je vais utiliser scikit-optimize avec BayesSearchCV qui est plus simple que de créer des espaces de recherche manuels.
-
-Parfait ! L'optimisation bayésienne est souvent plus efficace que RandomizedSearchCV. Voici la version avec **BayesSearchCV** qui évite toutes les erreurs d'incompatibilité :
+Voici le code complet avec la fonction target business et 150 itérations pour tous :
 
 ```python
-def optimize_bayesian_approach():
-    """Optimisation bayésienne avec gestion parfaite des incompatibilités"""
+def optimize_bayesian_business_target():
+    """Optimisation bayésienne avec fonction target business"""
     
     # === IMPORTS ===
     global pd
     import numpy as np
     from sklearn.feature_selection import SelectKBest, f_classif
-    from sklearn.metrics import confusion_matrix, classification_report
+    from sklearn.metrics import confusion_matrix, classification_report, make_scorer
+    from sklearn.model_selection import cross_val_predict
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.linear_model import LogisticRegression
     from xgboost import XGBClassifier
@@ -40,6 +33,36 @@ def optimize_bayesian_approach():
         print("❌ Installation requise: pip install scikit-optimize")
         return None, None
     
+    # === FONCTION TARGET BUSINESS ===
+    def business_target_function(estimator, X, y):
+        """Optimise selon critères business : recall avec contrainte fausses alertes"""
+        try:
+            y_pred = cross_val_predict(estimator, X, y, cv=4)
+            cm = confusion_matrix(y, y_pred)
+            
+            if cm.shape == (2,2):
+                recall_probleme = cm[0,0] / (cm[0,0] + cm[0,1])
+                fausses_alertes = cm[1,0]
+                
+                # Objectif business : maximiser recall mais minimiser fausses alertes
+                # Pénalité progressive pour trop de fausses alertes
+                if fausses_alertes > 1500:
+                    penalty = 0.3
+                elif fausses_alertes > 1000:
+                    penalty = 0.1
+                else:
+                    penalty = 0
+                    
+                return recall_probleme * (1 - penalty)
+            else:
+                return 0
+        except Exception as e:
+            print(f"Erreur dans business_target_function: {e}")
+            return 0
+    
+    # Créer le scorer personnalisé
+    business_scorer = make_scorer(business_target_function, greater_is_better=True)
+    
     # === PREPROCESSING ===
     selector = SelectKBest(score_func=f_classif, k=5)
     X_train_selected = selector.fit_transform(X_train, y_train)
@@ -52,9 +75,8 @@ def optimize_bayesian_approach():
     print(f"Features sélectionnées (5): {list(selected_features)}")
     
     # === ESPACES DE RECHERCHE BAYÉSIENNE ===
-    # Définition des espaces compatibles pour chaque modèle
     
-    # 1. LogisticRegression - 4 MODÈLES SÉPARÉS POUR ÉVITER LES CONFLITS
+    # 1. LogisticRegression - 4 MODÈLES SÉPARÉS
     logistic_models = {
         'LogisticRegression_liblinear_l1': {
             'model': LogisticRegression(
@@ -180,23 +202,21 @@ def optimize_bayesian_approach():
     
     for name, config in all_models.items():
         print(f"\n{'='*80}")
-        print(f"=== OPTIMISATION BAYÉSIENNE {name} ===")
+        print(f"=== OPTIMISATION BAYÉSIENNE BUSINESS {name} ===")
         print(f"{'='*80}")
         
-        # Nombre d'itérations selon le modèle
-        if 'LogisticRegression' in name:
-            n_calls = 50  # Moins d'itérations pour LogisticRegression
-        else:
-            n_calls = 80  # Plus d'itérations pour modèles complexes
+        # 150 itérations pour tous comme demandé
+        n_calls = 150
         
         print(f"Nombre d'itérations bayésiennes: {n_calls}")
+        print("🎯 Fonction target : Recall avec pénalité fausses alertes")
         print("🔄 Lancement BayesSearchCV...")
         
-        # BayesSearchCV
+        # BayesSearchCV avec fonction target business
         bayes_search = BayesSearchCV(
             estimator=config['model'],
             search_spaces=config['search_space'],
-            scoring='recall',
+            scoring=business_scorer,  # Fonction target business
             cv=4,
             n_iter=n_calls,
             random_state=42,
@@ -215,12 +235,19 @@ def optimize_bayesian_approach():
             # Prédictions
             y_pred = best_model.predict(X_test_sel)
             
-            # Métriques
+            # Métriques détaillées
             cm = confusion_matrix(y_test, y_pred)
             recall_probleme = cm[0,0] / (cm[0,0] + cm[0,1])
             precision_probleme = cm[0,0] / (cm[0,0] + cm[1,0]) if (cm[0,0] + cm[1,0]) > 0 else 0
             fausses_alertes = cm[1,0]
             f1_probleme = 2 * (precision_probleme * recall_probleme) / (precision_probleme + recall_probleme) if (precision_probleme + recall_probleme) > 0 else 0
+            
+            # Calcul du score business
+            business_score = recall_probleme
+            if fausses_alertes > 1500:
+                business_score *= 0.7
+            elif fausses_alertes > 1000:
+                business_score *= 0.9
             
             bayesian_results[name] = {
                 'best_score': bayes_search.best_score_,
@@ -229,13 +256,15 @@ def optimize_bayesian_approach():
                 'precision_probleme': precision_probleme,
                 'fausses_alertes': fausses_alertes,
                 'f1_probleme': f1_probleme,
-                'cv_results': bayes_search.cv_results_
+                'business_score': business_score
             }
             
             print(f"✅ {name} TERMINÉ !")
-            print(f"Meilleur score CV: {bayes_search.best_score_:.4f}")
+            print(f"Meilleur score CV (business): {bayes_search.best_score_:.4f}")
             print(f"Recall test: {recall_probleme:.4f}")
             print(f"Precision test: {precision_probleme:.4f}")
+            print(f"Fausses alertes: {fausses_alertes}")
+            print(f"Score business: {business_score:.4f}")
             print(f"Meilleurs paramètres: {bayes_search.best_params_}")
             
         except Exception as e:
@@ -247,9 +276,11 @@ def optimize_bayesian_approach():
     # === SÉLECTION DU MEILLEUR LOGISTIC REGRESSION ===
     logistic_results = {k: v for k, v in bayesian_results.items() if 'LogisticRegression' in k}
     if logistic_results:
-        best_logistic = max(logistic_results.items(), key=lambda x: x[1]['recall_probleme'])
+        best_logistic = max(logistic_results.items(), key=lambda x: x[1]['business_score'])
         print(f"\n🏆 MEILLEUR LOGISTIC REGRESSION: {best_logistic[0]}")
+        print(f"Business Score: {best_logistic[1]['business_score']:.4f}")
         print(f"Recall: {best_logistic[1]['recall_probleme']:.4f}")
+        print(f"Fausses alertes: {best_logistic[1]['fausses_alertes']}")
         
         # Garder seulement le meilleur LogisticRegression
         for k in list(bayesian_results.keys()):
@@ -263,59 +294,69 @@ def optimize_bayesian_approach():
     
     # === COMPARAISON FINALE ===
     print(f"\n{'='*100}")
-    print("=== COMPARAISON FINALE - OPTIMISATION BAYÉSIENNE ===")
+    print("=== COMPARAISON FINALE - OPTIMISATION BAYÉSIENNE BUSINESS ===")
     print(f"{'='*100}")
     
     if bayesian_results:
         comparison_df = pd.DataFrame(bayesian_results).T
-        comparison_df = comparison_df.sort_values('recall_probleme', ascending=False)
+        comparison_df = comparison_df.sort_values('business_score', ascending=False)
         
-        print("\n📊 CLASSEMENT PAR RECALL PROBLÈME:")
-        print(comparison_df[['recall_probleme', 'precision_probleme', 'fausses_alertes', 'f1_probleme', 'best_score']].round(4))
+        print("\n📊 CLASSEMENT PAR BUSINESS SCORE:")
+        print(comparison_df[['business_score', 'recall_probleme', 'precision_probleme', 'fausses_alertes', 'f1_probleme']].round(4))
         
         # Recommandations
-        best_recall = comparison_df.index[0]
+        best_business = comparison_df.index[0]
+        best_recall = comparison_df.sort_values('recall_probleme', ascending=False).index[0]
         best_precision = comparison_df.sort_values('precision_probleme', ascending=False).index[0]
-        best_f1 = comparison_df.sort_values('f1_probleme', ascending=False).index[0]
         
-        print(f"\n🏆 CHAMPIONS BAYÉSIENS:")
-        print(f"🎯 Meilleur RECALL: {best_recall} - {comparison_df.loc[best_recall, 'recall_probleme']:.4f}")
+        print(f"\n🏆 CHAMPIONS BUSINESS:")
+        print(f"🎯 Meilleur BUSINESS SCORE: {best_business} - {comparison_df.loc[best_business, 'business_score']:.4f}")
+        print(f"📈 Meilleur RECALL: {best_recall} - {comparison_df.loc[best_recall, 'recall_probleme']:.4f}")
         print(f"🔍 Meilleure PRECISION: {best_precision} - {comparison_df.loc[best_precision, 'precision_probleme']:.4f}")
-        print(f"⚖️  Meilleur F1: {best_f1} - {comparison_df.loc[best_f1, 'f1_probleme']:.4f}")
         
-        # Comparaison avec RandomizedSearchCV
-        print(f"\n📈 COMPARAISON BAYÉSIEN vs RANDOM:")
-        print(f"RandomizedSearchCV meilleur recall: 0.5436")
-        best_bayesian_recall = comparison_df.loc[best_recall, 'recall_probleme']
-        improvement = best_bayesian_recall - 0.5436
-        print(f"Bayésien meilleur recall: {best_bayesian_recall:.4f}")
-        print(f"Amélioration: {improvement:+.4f} ({improvement/0.5436*100:+.2f}%)")
+        # Comparaison avec approches précédentes
+        print(f"\n📈 ÉVOLUTION DES PERFORMANCES:")
+        print(f"Baseline original: 0.5340")
+        print(f"RandomizedSearchCV: 0.5436")
+        best_business_score = comparison_df.loc[best_business, 'business_score']
+        best_recall_score = comparison_df.loc[best_business, 'recall_probleme']
+        print(f"Bayésien Business: {best_business_score:.4f} (recall: {best_recall_score:.4f})")
+        
+        improvement_vs_baseline = best_recall_score - 0.5340
+        improvement_vs_random = best_recall_score - 0.5436
+        print(f"Gain vs baseline: {improvement_vs_baseline:+.4f} ({improvement_vs_baseline/0.5340*100:+.2f}%)")
+        print(f"Gain vs RandomizedSearchCV: {improvement_vs_random:+.4f} ({improvement_vs_random/0.5436*100:+.2f}%)")
+        
+        # Analyse des fausses alertes
+        print(f"\n🚨 ANALYSE FAUSSES ALERTES:")
+        for model in comparison_df.index:
+            fausses = comparison_df.loc[model, 'fausses_alertes']
+            if fausses > 1500:
+                status = "🔴 TRÈS ÉLEVÉ"
+            elif fausses > 1000:
+                status = "🟠 ÉLEVÉ"
+            else:
+                status = "🟢 ACCEPTABLE"
+            print(f"{model}: {fausses} fausses alertes {status}")
     
     return bayesian_results, best_models
 
-# === LANCEMENT DE L'OPTIMISATION BAYÉSIENNE ===
-print("🔬 LANCEMENT DE L'OPTIMISATION BAYÉSIENNE")
-print("🎯 Recherche intelligente des hyperparamètres optimaux")
-print("⚡ Plus efficace que RandomizedSearchCV")
+# === LANCEMENT DE L'OPTIMISATION BAYÉSIENNE BUSINESS ===
+print("🎯 LANCEMENT DE L'OPTIMISATION BAYÉSIENNE BUSINESS")
+print("📊 Fonction target: Recall avec pénalité sur fausses alertes")
+print("🔄 150 itérations pour tous les modèles")
+print("⏰ Cela peut prendre du temps...")
 
-bayesian_results, bayesian_models = optimize_bayesian_approach()
+bayesian_business_results, bayesian_business_models = optimize_bayesian_business_target()
 ```
 
-## 🔬 **Avantages de l'optimisation bayésienne :**
+## 🎯 **Fonction Target Business expliquée :**
 
-1. **Plus efficace** : Explore intelligemment l'espace des paramètres
-2. **Converge plus vite** : Utilise l'historique des essais précédents
-3. **Moins d'itérations** : 50-80 itérations vs 150-250 en random
-4. **Meilleure optimisation** : Souvent trouve de meilleurs paramètres
+**Objectif :** Maximiser le recall tout en pénalisant les fausses alertes excessives
 
-## 🎯 **Attentes :**
-- Amélioration potentielle de 2-5% du recall
-- Découverte de paramètres plus fins
-- Temps de calcul réduit
+**Pénalités :**
+- **> 1500 fausses alertes** : -30% de score
+- **> 1000 fausses alertes** : -10% de score  
+- **≤ 1000 fausses alertes** : Pas de pénalité
 
-**Installez scikit-optimize si nécessaire :**
-```bash
-pip install scikit-optimize
-```
-
-Lancez et montrez-moi si l'approche bayésienne surpasse votre RandomizedSearchCV ! 🚀
+**Avantage :** Trouve le meilleur équilibre détection/fausses alertes selon vos critères business ! 🚀
