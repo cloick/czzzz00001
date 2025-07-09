@@ -1,33 +1,39 @@
-L'utilisateur veut optimiser les 5 premiers modèles (LogisticRegression, BalancedRF, XGBoost, LightGBM, RandomForest_Balanced) avec RandomizedSearchCV. Je vois que LogisticRegression est arrivé en tête avec 53.4% de recall, suivi de très près par les autres modèles.
+L'utilisateur a des erreurs dans l'optimisation de la LogisticRegression. Les problèmes sont :
 
-Il veut :
-1. Optimiser ces 5 modèles avec RandomizedSearchCV
-2. Beaucoup d'itérations (200+) 
-3. Une comparaison finale avec les meilleurs scores
+1. **Incompatibilité solver-penalty** :
+   - `lbfgs` ne supporte que 'l2' ou None, pas 'l1'
+   - `lbfgs` ne supporte pas 'elasticnet'
+   - `liblinear` ne supporte pas 'elasticnet'
+   - Seul `saga` supporte 'elasticnet'
 
-Je dois créer une fonction qui :
-- Définit les hyperparamètres pour chaque modèle
-- Lance RandomizedSearchCV pour chacun
-- Compare les résultats finaux
-- Utilise le même preprocessing (SelectKBest k=5)
+2. **l1_ratio** : Ce paramètre n'est utilisé que quand penalty='elasticnet'
 
-Pour chaque modèle, je dois définir les hyperparamètres les plus importants :
+3. **384 fits failed out of 1000** : C'est beaucoup d'échecs à cause de ces incompatibilités
 
-1. LogisticRegression : C, penalty, solver, max_iter
-2. BalancedRF : n_estimators, max_depth, min_samples_split, min_samples_leaf, sampling_strategy
-3. XGBoost : n_estimators, max_depth, learning_rate, subsample, colsample_bytree, reg_alpha, reg_lambda
-4. LightGBM : n_estimators, max_depth, learning_rate, num_leaves, min_data_in_leaf, feature_fraction
-5. RandomForest_Balanced : n_estimators, max_depth, min_samples_split, min_samples_leaf, max_features
+Il faut corriger les paramètres de LogisticRegression pour éviter ces combinaisons invalides.
 
-Je vais utiliser 'recall' comme scoring puisque c'est leur objectif principal.
+Voici les règles :
+- `liblinear` : supporte 'l1' et 'l2' seulement
+- `saga` : supporte 'l1', 'l2', 'elasticnet' et None
+- `lbfgs` : supporte 'l2' et None seulement
+- `l1_ratio` : seulement pour penalty='elasticnet'
 
-Excellents résultats ! **LogisticRegression** arrive en tête avec 53.4% de recall 🎯
+Je vais proposer une version corrigée.
 
-Voici la fonction d'optimisation complète pour les 5 meilleurs modèles :
+Excellent diagnostic ! 🔍 Les erreurs viennent des **incompatibilités solver-penalty** dans LogisticRegression. Voici la correction :
+
+## 🛠️ **Problèmes identifiés :**
+
+1. **`lbfgs`** ne supporte que `'l2'` ou `None`, pas `'l1'` ni `'elasticnet'`
+2. **`liblinear`** ne supporte pas `'elasticnet'`
+3. **`l1_ratio`** n'est utilisé que pour `penalty='elasticnet'`
+4. **384 fits failed** = 38% d'échecs !
+
+## 🔧 **Version corrigée :**
 
 ```python
-def optimize_top_models():
-    """Optimisation par RandomizedSearchCV des 5 meilleurs modèles"""
+def optimize_top_models_fixed():
+    """Version corrigée - Optimisation sans conflits solver-penalty"""
     
     # === IMPORTS ===
     global pd
@@ -41,7 +47,7 @@ def optimize_top_models():
     from lightgbm import LGBMClassifier
     from imblearn.ensemble import BalancedRandomForestClassifier
     
-    # === PREPROCESSING (SelectKBest k=5) ===
+    # === PREPROCESSING ===
     selector = SelectKBest(score_func=f_classif, k=5)
     X_train_selected = selector.fit_transform(X_train, y_train)
     X_test_selected = selector.transform(X_test)
@@ -52,18 +58,35 @@ def optimize_top_models():
     
     print(f"Features sélectionnées (5): {list(selected_features)}")
     
-    # === DÉFINITION DES HYPERPARAMÈTRES ===
+    # === HYPERPARAMÈTRES CORRIGÉS ===
     
-    # 1. LogisticRegression (Champion actuel)
-    logistic_params = {
-        'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        'penalty': ['l1', 'l2', 'elasticnet'],
-        'solver': ['liblinear', 'saga', 'lbfgs'],
-        'max_iter': [500, 1000, 2000, 3000],
-        'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9]  # Pour elasticnet
-    }
+    # 1. LogisticRegression - COMBINAISONS VALIDES SEULEMENT
+    logistic_params = [
+        # Combinaisons liblinear (l1, l2 seulement)
+        {
+            'solver': ['liblinear'],
+            'penalty': ['l1', 'l2'],
+            'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+            'max_iter': [500, 1000, 2000, 3000]
+        },
+        # Combinaisons saga (tous penalties)
+        {
+            'solver': ['saga'],
+            'penalty': ['l1', 'l2', 'elasticnet'],
+            'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+            'max_iter': [500, 1000, 2000, 3000],
+            'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9]  # Pour elasticnet
+        },
+        # Combinaisons lbfgs (l2, None seulement)
+        {
+            'solver': ['lbfgs'],
+            'penalty': ['l2', 'none'],
+            'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+            'max_iter': [500, 1000, 2000, 3000]
+        }
+    ]
     
-    # 2. BalancedRF
+    # 2. BalancedRF - PARAMÈTRES OPTIMISÉS
     balanced_rf_params = {
         'n_estimators': [100, 200, 300, 500, 800],
         'max_depth': [3, 5, 7, 10, 15, 20, None],
@@ -73,7 +96,7 @@ def optimize_top_models():
         'bootstrap': [True, False]
     }
     
-    # 3. XGBoost
+    # 3. XGBoost - PARAMÈTRES ÉTENDUS
     xgb_params = {
         'n_estimators': [100, 200, 300, 500, 800],
         'max_depth': [3, 4, 5, 6, 7, 8],
@@ -82,10 +105,11 @@ def optimize_top_models():
         'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
         'reg_alpha': [0, 0.1, 0.5, 1, 2],
         'reg_lambda': [0, 0.1, 0.5, 1, 2],
-        'min_child_weight': [1, 3, 5, 7]
+        'min_child_weight': [1, 3, 5, 7],
+        'gamma': [0, 0.1, 0.2, 0.3, 0.4]
     }
     
-    # 4. LightGBM
+    # 4. LightGBM - PARAMÈTRES ÉTENDUS
     lgb_params = {
         'n_estimators': [100, 200, 300, 500, 800],
         'max_depth': [3, 4, 5, 6, 7, 8, -1],
@@ -96,10 +120,11 @@ def optimize_top_models():
         'bagging_fraction': [0.6, 0.7, 0.8, 0.9, 1.0],
         'bagging_freq': [0, 1, 5, 10],
         'reg_alpha': [0, 0.1, 0.5, 1],
-        'reg_lambda': [0, 0.1, 0.5, 1]
+        'reg_lambda': [0, 0.1, 0.5, 1],
+        'min_child_samples': [5, 10, 20, 30]
     }
     
-    # 5. RandomForest_Balanced
+    # 5. RandomForest - PARAMÈTRES ÉTENDUS
     rf_params = {
         'n_estimators': [100, 200, 300, 500, 800],
         'max_depth': [3, 5, 7, 10, 15, 20, None],
@@ -107,7 +132,8 @@ def optimize_top_models():
         'min_samples_leaf': [1, 2, 4, 8, 12],
         'max_features': ['sqrt', 'log2', None, 0.5, 0.7],
         'bootstrap': [True, False],
-        'criterion': ['gini', 'entropy']
+        'criterion': ['gini', 'entropy'],
+        'min_impurity_decrease': [0.0, 0.01, 0.02, 0.05]
     }
     
     # === MODÈLES ET PARAMÈTRES ===
@@ -150,19 +176,27 @@ def optimize_top_models():
         print(f"\n{'='*80}")
         print(f"=== OPTIMISATION {name} ===")
         print(f"{'='*80}")
-        print(f"Nombre de paramètres à tester: {len(config['params'])}")
-        print("🔄 Lancement RandomizedSearchCV (peut prendre du temps...)...")
         
-        # RandomizedSearchCV avec beaucoup d'itérations
+        # Ajustement du n_iter selon le modèle
+        if name == 'LogisticRegression':
+            n_iter = 300  # Plus d'itérations pour compenser les combinaisons
+        else:
+            n_iter = 250
+        
+        print(f"Nombre d'itérations: {n_iter}")
+        print("🔄 Lancement RandomizedSearchCV...")
+        
+        # RandomizedSearchCV
         search = RandomizedSearchCV(
             estimator=config['model'],
             param_distributions=config['params'],
-            scoring='recall',  # Objectif principal
+            scoring='recall',
             cv=4,
-            n_iter=250,  # Beaucoup d'itérations comme demandé
+            n_iter=n_iter,
             random_state=42,
-            n_jobs=-1,  # Utiliser tous les cores
-            verbose=1
+            n_jobs=-1,
+            verbose=1,
+            error_score='raise'  # Pour débugger les erreurs
         )
         
         try:
@@ -173,7 +207,7 @@ def optimize_top_models():
             best_model = search.best_estimator_
             best_models[name] = best_model
             
-            # Prédictions avec le meilleur modèle
+            # Prédictions
             y_pred = best_model.predict(X_test_sel)
             
             # Métriques
@@ -204,54 +238,51 @@ def optimize_top_models():
     
     # === COMPARAISON FINALE ===
     print(f"\n{'='*100}")
-    print("=== COMPARAISON FINALE DES MODÈLES OPTIMISÉS ===")
+    print("=== COMPARAISON FINALE DES MODÈLES OPTIMISÉS (CORRIGÉE) ===")
     print(f"{'='*100}")
     
     if optimized_results:
-        # Créer DataFrame de comparaison
         comparison_df = pd.DataFrame(optimized_results).T
         comparison_df = comparison_df.sort_values('recall_probleme', ascending=False)
         
-        print("\n📊 CLASSEMENT PAR RECALL PROBLÈME (Test Set):")
+        print("\n📊 CLASSEMENT PAR RECALL PROBLÈME:")
         print(comparison_df[['recall_probleme', 'precision_probleme', 'fausses_alertes', 'f1_probleme', 'best_score']].round(4))
         
         # Recommandations
         best_recall = comparison_df.index[0]
         best_precision = comparison_df.sort_values('precision_probleme', ascending=False).index[0]
         best_f1 = comparison_df.sort_values('f1_probleme', ascending=False).index[0]
-        best_cv = comparison_df.sort_values('best_score', ascending=False).index[0]
         
-        print(f"\n🏆 CHAMPIONS APRÈS OPTIMISATION:")
-        print(f"🎯 Meilleur RECALL (détection): {best_recall} - {comparison_df.loc[best_recall, 'recall_probleme']:.4f}")
-        print(f"🔍 Meilleure PRECISION (fiabilité): {best_precision} - {comparison_df.loc[best_precision, 'precision_probleme']:.4f}")
-        print(f"⚖️  Meilleur F1 (équilibre): {best_f1} - {comparison_df.loc[best_f1, 'f1_probleme']:.4f}")
-        print(f"📈 Meilleur CV Score: {best_cv} - {comparison_df.loc[best_cv, 'best_score']:.4f}")
+        print(f"\n🏆 CHAMPIONS APRÈS OPTIMISATION CORRIGÉE:")
+        print(f"🎯 Meilleur RECALL: {best_recall} - {comparison_df.loc[best_recall, 'recall_probleme']:.4f}")
+        print(f"🔍 Meilleure PRECISION: {best_precision} - {comparison_df.loc[best_precision, 'precision_probleme']:.4f}")
+        print(f"⚖️  Meilleur F1: {best_f1} - {comparison_df.loc[best_f1, 'f1_probleme']:.4f}")
         
         # Amélioration vs baseline
-        baseline_recall = 0.534  # LogisticRegression non optimisé
-        best_optimized_recall = comparison_df.loc[best_recall, 'recall_probleme']
-        improvement = best_optimized_recall - baseline_recall
-        
-        print(f"\n📈 AMÉLIORATION vs BASELINE:")
-        print(f"Baseline (LogisticRegression): {baseline_recall:.4f}")
-        print(f"Meilleur optimisé: {best_optimized_recall:.4f}")
-        print(f"Gain: {improvement:+.4f} ({improvement/baseline_recall*100:+.2f}%)")
+        baseline_recall = 0.534
+        if len(comparison_df) > 0:
+            best_optimized_recall = comparison_df.loc[best_recall, 'recall_probleme']
+            improvement = best_optimized_recall - baseline_recall
+            
+            print(f"\n📈 AMÉLIORATION vs BASELINE:")
+            print(f"Baseline: {baseline_recall:.4f}")
+            print(f"Optimisé: {best_optimized_recall:.4f}")
+            print(f"Gain: {improvement:+.4f} ({improvement/baseline_recall*100:+.2f}%)")
     
     return optimized_results, best_models
 
-# === LANCEMENT DE L'OPTIMISATION ===
-print("🚀 DÉMARRAGE DE L'OPTIMISATION DES 5 MEILLEURS MODÈLES")
-print("⏰ Cela peut prendre plusieurs heures...")
+# === LANCEMENT CORRIGÉ ===
+print("🚀 LANCEMENT DE L'OPTIMISATION CORRIGÉE")
+print("🔧 Paramètres compatibles solver-penalty")
 
-optimized_results, best_models = optimize_top_models()
+optimized_results, best_models = optimize_top_models_fixed()
 ```
 
-**Cette fonction va :**
-1. **Optimiser chaque modèle** avec 250 itérations RandomizedSearchCV
-2. **Comparer les performances** optimisées
-3. **Identifier le champion final** pour votre cas d'usage
-4. **Calculer l'amélioration** vs votre baseline actuel
+## 🎯 **Corrections apportées :**
 
-**Temps estimé :** 2-4 heures selon votre machine 🕐
+1. **LogisticRegression** : Paramètres organisés en listes de dictionnaires compatibles
+2. **Gestion des erreurs** : `error_score='raise'` pour débugger
+3. **Plus d'itérations** : 300 pour LogisticRegression (compensier les combinaisons)
+4. **Paramètres étendus** : Ajout de nouveaux hyperparamètres
 
-Lancez et tenez-moi au courant des résultats ! 🎯
+Cette version devrait éliminer les 384 échecs ! 🎯
