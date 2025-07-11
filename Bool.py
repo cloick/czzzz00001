@@ -1,42 +1,45 @@
-L'utilisateur me dit qu'il n'y a que Dash disponible sur Dataiku, pas Streamlit. Je dois donc convertir tout le code Streamlit que j'ai fait en Dash. 
+L'utilisateur a une erreur de syntaxe dans le code. Je vois le problème dans les logs :
 
-Le code initial qu'il voit :
-```python
-import dash_html_components as html 
-
-# build your Dash app
-
-app.layout = html.Div()
+```
+File "<string>", line 470
+last_failure team_stats,get("last_failure_date')
+SyntaxError: invalid syntax, Maybe you meant '-=' or ';=' instead of '-'?
 ```
 
-Je dois donc créer une webapp Dash complète avec :
-1. Les imports Dash nécessaires
-2. Le layout avec HTML components
-3. Les callbacks pour l'interactivité
-4. Le CSS pour le design
-5. La logique d'analyse
+Il y a une erreur dans mon code dans la partie des callbacks. Je vois le problème - dans la fonction `update_context_content`, j'ai écrit quelque chose comme :
 
-C'est un changement important car Dash fonctionne très différemment de Streamlit :
-- Dash utilise des callbacks pour l'interactivité
-- Le CSS doit être défini différemment
-- Les composants sont différents
-- La structure est plus complexe
+```python
+dbc.Col([
+    last_failure = team_stats.get('last_failure_date')
+    if last_failure and pd.notna(last_failure):
+        days_ago = (datetime.now() - pd.to_datetime(last_failure)).days
+        create_metric_card("Dernier échec", f"Il y a {days_ago}j")
+    else:
+        create_metric_card("Dernier échec", "Aucun récent")
+], width=3)
+```
 
-Je vais créer une webapp Dash complète qui reproduit les fonctionnalités de la webapp Streamlit.
+Le problème c'est que j'ai mis une assignation `last_failure = ...` à l'intérieur d'un appel de fonction dbc.Col([]), ce qui n'est pas valide syntaxiquement. Je dois corriger ça.
 
-## 🎯 **WEBAPP DASH COMPLÈTE - ÉTAPE PAR ÉTAPE**
+Aussi, il y a probablement d'autres erreurs similaires dans le code. Je dois revoir tout le code et corriger les erreurs de syntaxe.
 
-### **ÉTAPE 1 : Remplacer tout le contenu par ce code complet :**
+Voici les problèmes que je vois :
+1. L'assignation dans dbc.Col
+2. Problème potentiel avec les imports dash_bootstrap_components 
+3. Erreurs dans les conditions if/else dans les listes
+
+Je vais donner un code corrigé complètement.
+
+## 🚨 **ERREUR DE SYNTAXE DÉTECTÉE - VOICI LE CODE CORRIGÉ :**
 
 ```python
 """
 WEBAPP DASH - ANALYSE DES RISQUES DE CHANGEMENT SERVICENOW
-100% DONNÉES RÉELLES - Interface Dash pour Dataiku
+100% DONNÉES RÉELLES - Version corrigée
 """
 
 import dash
-from dash import dcc, html, Input, Output, State, callback_table
-import dash_bootstrap_components as dbc
+from dash import dcc, html, Input, Output, State
 import plotly.graph_objs as go
 import pandas as pd
 from datetime import datetime
@@ -50,7 +53,7 @@ from servicenow_connector import ServiceNowConnector
 # INITIALISATION DE L'APP DASH
 # ===================================================================
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = dash.Dash(__name__)
 
 # ===================================================================
 # INITIALISATION DES COMPOSANTS MÉTIER
@@ -60,127 +63,61 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 predictor = ChangeRiskPredictor()
 connector = ServiceNowConnector()
 
+# Variable globale pour stocker les données du changement actuel
+current_change_data = {}
+
 # Vérification du statut
 model_info = predictor.get_model_info()
 connection_status = connector.get_connection_status()
 
 # ===================================================================
-# CSS CUSTOM
-# ===================================================================
-
-custom_css = """
-<style>
-    .main-header {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    
-    .risk-card {
-        background: white;
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border-left: 5px solid #667eea;
-        margin: 1rem 0;
-        text-align: center;
-    }
-    
-    .metric-card {
-        background: #f8f9fa;
-        padding: 1.5rem;
-        border-radius: 10px;
-        text-align: center;
-        margin: 0.5rem;
-        border: 1px solid #e9ecef;
-    }
-    
-    .success-box {
-        background: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    
-    .info-box {
-        background: #d1ecf1;
-        border: 1px solid #bee5eb;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    
-    .warning-box {
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    
-    .error-box {
-        background: #f8d7da;
-        border: 1px solid #f5c6cb;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    
-    .similar-change {
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
-        border: 1px solid #ddd;
-    }
-    
-    .feature-display {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 0.5rem 0;
-    }
-</style>
-"""
-
-# ===================================================================
-# FUNCTIONS UTILITAIRES
+# FONCTIONS UTILITAIRES
 # ===================================================================
 
 def create_status_card(title, status, details=None):
     """Créer une carte de statut"""
-    color = "success" if "✅" in status else "danger" if "❌" in status else "warning"
+    color = "#d4edda" if "✅" in status else "#f8d7da" if "❌" in status else "#fff3cd"
     
     card_content = [
-        html.H6(title, className="card-title"),
-        html.P(status, className="card-text")
+        html.H6(title, style={"margin": "0 0 0.5rem 0"}),
+        html.P(status, style={"margin": "0"})
     ]
     
     if details:
-        card_content.append(html.Small(details, className="text-muted"))
+        card_content.append(html.Small(details, style={"color": "#666"}))
     
-    return dbc.Card(
-        dbc.CardBody(card_content),
-        color=color,
-        outline=True,
-        className="mb-2"
+    return html.Div(
+        card_content,
+        style={
+            "background": color,
+            "padding": "1rem",
+            "border-radius": "8px",
+            "margin": "0.5rem 0",
+            "border": "1px solid #ddd"
+        }
     )
 
 def create_metric_card(title, value, subtitle=None):
     """Créer une carte métrique"""
     card_content = [
-        html.H3(value, className="text-primary mb-0"),
-        html.P(title, className="mb-0"),
+        html.H3(value, style={"color": "#667eea", "margin": "0"}),
+        html.P(title, style={"margin": "0.5rem 0"}),
     ]
     
     if subtitle:
-        card_content.append(html.Small(subtitle, className="text-muted"))
+        card_content.append(html.Small(subtitle, style={"color": "#666"}))
     
-    return html.Div(card_content, className="metric-card")
+    return html.Div(
+        card_content,
+        style={
+            "background": "#f8f9fa",
+            "padding": "1.5rem",
+            "border-radius": "10px",
+            "text-align": "center",
+            "margin": "0.5rem",
+            "border": "1px solid #e9ecef"
+        }
+    )
 
 def format_similar_change(change):
     """Formater un changement similaire"""
@@ -206,10 +143,14 @@ def format_similar_change(change):
             html.Br(),
             html.Small(change['short_description'][:100] + "..."),
             html.Br(),
-            html.Small(f"Similarité: {change['similarity_score']}%{duration_text}", 
-                      className="text-muted")
+            html.Small(f"Similarité: {change['similarity_score']}%{duration_text}")
         ])
-    ], style={"background": bg_color, "padding": "1rem", "border-radius": "8px", "margin": "0.5rem 0"})
+    ], style={
+        "background": bg_color, 
+        "padding": "1rem", 
+        "border-radius": "8px", 
+        "margin": "0.5rem 0"
+    })
 
 # ===================================================================
 # LAYOUT PRINCIPAL
@@ -217,26 +158,29 @@ def format_similar_change(change):
 
 app.layout = html.Div([
     
-    # CSS Custom
-    html.Div([
-        html.Style(custom_css)
-    ]),
-    
     # Header principal
     html.Div([
-        html.H1("🔍 Change Risk Analyzer", style={"margin": "0", "font-size": "2.5rem"}),
+        html.H1("🔍 Change Risk Analyzer", 
+                style={"margin": "0", "font-size": "2.5rem"}),
         html.P("Analyseur de risques pour changements ServiceNow • 100% Données Réelles", 
                style={"margin": "0.5rem 0 0 0", "font-size": "1.1rem"})
-    ], className="main-header"),
+    ], style={
+        "background": "linear-gradient(90deg, #667eea 0%, #764ba2 100%)",
+        "padding": "2rem",
+        "border-radius": "15px",
+        "color": "white",
+        "text-align": "center",
+        "margin-bottom": "2rem"
+    }),
     
     # Container principal
-    dbc.Container([
+    html.Div([
         
         # Row pour le statut et la saisie
-        dbc.Row([
+        html.Div([
             
             # Colonne gauche - Statuts
-            dbc.Col([
+            html.Div([
                 html.H4("🤖 Statut du Système"),
                 
                 # Statut modèle
@@ -250,61 +194,73 @@ app.layout = html.Div([
                 create_status_card(
                     "Connexions ServiceNow",
                     "✅ Connecté" if connection_status.get('status') == 'Connecté' else "❌ Erreur",
-                    "Tables: change_request & incident_filtree" if connection_status.get('status') == 'Connecté' else connection_status.get('error', '')
+                    "Tables: change_request & incident_filtree" if connection_status.get('status') == 'Connecté' else str(connection_status.get('error', ''))
                 ),
                 
                 # Informations modèle
-                html.H5("📊 Performance Modèle", className="mt-3"),
+                html.H5("📊 Performance Modèle", style={"margin-top": "1rem"}),
                 html.Div(id="model-performance-info")
                 
-            ], width=4),
+            ], style={"width": "30%", "display": "inline-block", "vertical-align": "top", "padding": "1rem"}),
             
             # Colonne droite - Interface principale
-            dbc.Col([
+            html.Div([
                 html.H4("📝 Analyse de Changement"),
                 
                 # Zone de saisie
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Label("Référence du changement:"),
-                        dbc.Input(
+                html.Div([
+                    html.Div([
+                        html.Label("Référence du changement:"),
+                        dcc.Input(
                             id="change-reference-input",
                             placeholder="CHG0012345",
                             type="text",
-                            className="mb-2"
+                            style={"width": "100%", "padding": "0.5rem", "margin": "0.5rem 0"}
                         ),
-                        html.Small("Format: CHG + 7 chiffres", className="text-muted")
-                    ], width=8),
+                        html.Small("Format: CHG + 7 chiffres", style={"color": "#666"})
+                    ], style={"width": "60%", "display": "inline-block", "vertical-align": "top"}),
                     
-                    dbc.Col([
-                        html.Br(),
-                        dbc.Button(
+                    html.Div([
+                        html.Button(
                             "🔍 Analyser",
                             id="analyze-button",
-                            color="primary",
-                            className="me-2",
-                            n_clicks=0
+                            n_clicks=0,
+                            style={
+                                "background": "#667eea", 
+                                "color": "white", 
+                                "border": "none", 
+                                "padding": "0.5rem 1rem", 
+                                "border-radius": "5px",
+                                "margin": "0.5rem"
+                            }
                         ),
-                        dbc.Button(
+                        html.Button(
                             "ℹ️ Test",
                             id="test-button",
-                            color="secondary",
-                            n_clicks=0
+                            n_clicks=0,
+                            style={
+                                "background": "#6c757d", 
+                                "color": "white", 
+                                "border": "none", 
+                                "padding": "0.5rem 1rem", 
+                                "border-radius": "5px",
+                                "margin": "0.5rem"
+                            }
                         )
-                    ], width=4)
-                ]),
+                    ], style={"width": "35%", "display": "inline-block", "vertical-align": "top", "text-align": "center"})
+                ], style={"margin": "1rem 0"}),
                 
                 # Zone de résultats
                 html.Hr(),
                 html.Div(id="analysis-results")
                 
-            ], width=8)
+            ], style={"width": "65%", "display": "inline-block", "vertical-align": "top", "padding": "1rem"})
         ]),
         
         # Zone pour les résultats détaillés
-        html.Div(id="detailed-results", className="mt-4")
+        html.Div(id="detailed-results", style={"margin-top": "2rem"})
         
-    ], fluid=True)
+    ], style={"max-width": "1200px", "margin": "0 auto", "padding": "1rem"})
 ])
 
 # ===================================================================
@@ -313,13 +269,14 @@ app.layout = html.Div([
 
 @app.callback(
     Output("model-performance-info", "children"),
-    Input("analyze-button", "n_clicks")  # Trigger sur le premier chargement
+    Input("analyze-button", "n_clicks")
 )
 def update_model_info(n_clicks):
     """Afficher les informations de performance du modèle"""
     
     if model_info.get("status") != "Modèle chargé":
-        return html.Div("❌ Modèle non disponible", className="error-box")
+        return html.Div("❌ Modèle non disponible", 
+                       style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px"})
     
     training_info = model_info.get('training_info', {})
     perf = training_info.get('performance', {})
@@ -327,13 +284,14 @@ def update_model_info(n_clicks):
     if perf:
         return html.Div([
             html.P([
-                html.Strong("Recall: "), perf.get('recall', 'N/A'), html.Br(),
-                html.Strong("Precision: "), perf.get('precision', 'N/A'), html.Br(),
+                html.Strong("Recall: "), str(perf.get('recall', 'N/A')), html.Br(),
+                html.Strong("Precision: "), str(perf.get('precision', 'N/A')), html.Br(),
                 html.Strong("Features: "), str(model_info.get('features', {}).get('count', 'N/A'))
             ])
-        ], className="info-box")
+        ], style={"background": "#d1ecf1", "padding": "1rem", "border-radius": "8px"})
     else:
-        return html.Div("Informations de performance non disponibles", className="warning-box")
+        return html.Div("Informations de performance non disponibles", 
+                       style={"background": "#fff3cd", "padding": "1rem", "border-radius": "8px"})
 
 @app.callback(
     [Output("analysis-results", "children"),
@@ -356,31 +314,41 @@ def perform_analysis(analyze_clicks, test_clicks, change_ref):
     if button_id == "test-button":
         status = connector.get_connection_status()
         if status.get('status') == 'Connecté':
-            return html.Div("✅ Test de connexion réussi", className="success-box"), ""
+            return html.Div("✅ Test de connexion réussi", 
+                           style={"background": "#d4edda", "padding": "1rem", "border-radius": "8px"}), ""
         else:
-            return html.Div(f"❌ Test échoué: {status.get('error', 'Erreur inconnue')}", className="error-box"), ""
+            return html.Div(f"❌ Test échoué: {status.get('error', 'Erreur inconnue')}", 
+                           style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px"}), ""
     
     # Analyse du changement
     if button_id == "analyze-button":
         
         if not change_ref:
-            return html.Div("⚠️ Veuillez saisir une référence de changement", className="warning-box"), ""
+            return html.Div("⚠️ Veuillez saisir une référence de changement", 
+                           style={"background": "#fff3cd", "padding": "1rem", "border-radius": "8px"}), ""
         
         # Validation format
         if not connector.validate_change_reference(change_ref):
-            return html.Div("❌ Format invalide. Utilisez CHG + 7 chiffres (ex: CHG0012345)", className="error-box"), ""
+            return html.Div("❌ Format invalide. Utilisez CHG + 7 chiffres (ex: CHG0012345)", 
+                           style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px"}), ""
         
         # Récupération des données
         change_data = connector.get_change_data(change_ref)
         
         if not change_data:
-            return html.Div(f"❌ Changement {change_ref} non trouvé dans ServiceNow", className="error-box"), ""
+            return html.Div(f"❌ Changement {change_ref} non trouvé dans ServiceNow", 
+                           style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px"}), ""
         
         # Analyse ML
         try:
             detailed_analysis = predictor.get_detailed_analysis(change_data)
         except Exception as e:
-            return html.Div(f"❌ Erreur analyse ML: {str(e)}", className="error-box"), ""
+            return html.Div(f"❌ Erreur analyse ML: {str(e)}", 
+                           style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px"}), ""
+        
+        # Stocker les données globalement
+        global current_change_data
+        current_change_data = change_data
         
         # === RÉSULTATS PRINCIPAUX ===
         risk_score = detailed_analysis['risk_score']
@@ -398,73 +366,81 @@ def perform_analysis(analyze_clicks, test_clicks, change_ref):
                 html.P(f"Niveau: {risk_level}", style={"margin": "0", "text-align": "center", "font-weight": "bold"}),
                 html.P(detailed_analysis['interpretation'], 
                        style={"margin": "0", "text-align": "center", "font-style": "italic"})
-            ], className="risk-card")
+            ], style={
+                "background": "white",
+                "padding": "2rem",
+                "border-radius": "15px",
+                "box-shadow": "0 4px 6px rgba(0, 0, 0, 0.1)",
+                "border-left": "5px solid #667eea",
+                "margin": "1rem 0",
+                "text-align": "center"
+            })
         ])
         
         # === RÉSULTATS DÉTAILLÉS ===
         detailed_results = html.Div([
             
-            dbc.Row([
+            html.Div([
                 # Colonne gauche - Facteurs et recommandations
-                dbc.Col([
+                html.Div([
                     html.H4("🚨 Facteurs de risque"),
                     html.Div([
                         html.Ul([
                             html.Li(factor) for factor in detailed_analysis['risk_factors']
                         ]) if detailed_analysis['risk_factors'] else html.P("Aucun facteur spécifique détecté")
-                    ], className="info-box"),
+                    ], style={"background": "#d1ecf1", "padding": "1rem", "border-radius": "8px"}),
                     
                     html.H4("💡 Recommandations"),
                     html.Div([
                         html.Ul([
                             html.Li(f"✅ {rec}") for rec in detailed_analysis['recommendations']
                         ])
-                    ], className="success-box")
+                    ], style={"background": "#d4edda", "padding": "1rem", "border-radius": "8px"})
                     
-                ], width=6),
+                ], style={"width": "48%", "display": "inline-block", "vertical-align": "top", "margin": "1%"}),
                 
                 # Colonne droite - Caractéristiques techniques
-                dbc.Col([
+                html.Div([
                     html.H4("🔧 Caractéristiques techniques"),
                     html.Div([
                         html.P([
-                            html.Strong("Type SILCA: "), change_data.get('dv_u_type_change_silca', 'N/A'), html.Br(),
-                            html.Strong("Type de changement: "), change_data.get('dv_type', 'N/A'), html.Br(),
+                            html.Strong("Type SILCA: "), str(change_data.get('dv_u_type_change_silca', 'N/A')), html.Br(),
+                            html.Strong("Type de changement: "), str(change_data.get('dv_type', 'N/A')), html.Br(),
                             html.Strong("Nombre de CAB: "), str(change_data.get('u_cab_count', 'N/A')), html.Br(),
                             html.Strong("Périmètre BCR: "), '✅' if change_data.get('u_bcr') else '❌', html.Br(),
                             html.Strong("Périmètre BPC: "), '✅' if change_data.get('u_bpc') else '❌'
                         ])
-                    ], className="feature-display"),
+                    ], style={"background": "#f8f9fa", "padding": "1rem", "border-radius": "8px"}),
                     
                     html.H4("📋 Métadonnées"),
                     html.Div([
                         html.P([
-                            html.Strong("Équipe: "), change_data.get('dv_assignment_group', 'N/A'), html.Br(),
-                            html.Strong("CI/Solution: "), change_data.get('dv_cmdb_ci', 'N/A'), html.Br(),
-                            html.Strong("Catégorie: "), change_data.get('dv_category', 'N/A'), html.Br(),
-                            html.Strong("État: "), change_data.get('dv_state', 'N/A')
+                            html.Strong("Équipe: "), str(change_data.get('dv_assignment_group', 'N/A')), html.Br(),
+                            html.Strong("CI/Solution: "), str(change_data.get('dv_cmdb_ci', 'N/A')), html.Br(),
+                            html.Strong("Catégorie: "), str(change_data.get('dv_category', 'N/A')), html.Br(),
+                            html.Strong("État: "), str(change_data.get('dv_state', 'N/A'))
                         ])
-                    ], className="info-box")
+                    ], style={"background": "#d1ecf1", "padding": "1rem", "border-radius": "8px"})
                     
-                ], width=6)
+                ], style={"width": "48%", "display": "inline-block", "vertical-align": "top", "margin": "1%"})
             ]),
             
-            # Onglets pour informations contextuelles
+            # Informations contextuelles
             html.Hr(),
             html.H3("📈 Informations contextuelles"),
             
-            dcc.Tabs(id="context-tabs", value="team-stats", children=[
-                dcc.Tab(label="👥 Statistiques équipe", value="team-stats"),
-                dcc.Tab(label="🛠️ Incidents liés", value="incidents"),
-                dcc.Tab(label="📋 Changements similaires", value="similar-changes")
+            # Onglets simulés
+            html.Div([
+                html.Button("👥 Statistiques équipe", id="btn-team", n_clicks=0, 
+                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa"}),
+                html.Button("🛠️ Incidents liés", id="btn-incidents", n_clicks=0,
+                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa"}),
+                html.Button("📋 Changements similaires", id="btn-similar", n_clicks=0,
+                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa"})
             ]),
             
             html.Div(id="context-content", style={"padding": "1rem"})
         ])
-        
-        # Stocker les données pour les onglets
-        global current_change_data
-        current_change_data = change_data
         
         return main_results, detailed_results
     
@@ -472,70 +448,73 @@ def perform_analysis(analyze_clicks, test_clicks, change_ref):
 
 @app.callback(
     Output("context-content", "children"),
-    [Input("context-tabs", "value")]
+    [Input("btn-team", "n_clicks"),
+     Input("btn-incidents", "n_clicks"),
+     Input("btn-similar", "n_clicks")]
 )
-def update_context_content(active_tab):
+def update_context_content(team_clicks, incidents_clicks, similar_clicks):
     """Mettre à jour le contenu des onglets contextuels"""
+    
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return html.Div("Cliquez sur un onglet pour voir les informations contextuelles")
+    
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
     try:
         change_data = current_change_data
+        if not change_data:
+            return html.Div("Aucune donnée de changement disponible")
     except:
         return html.Div("Aucune donnée de changement disponible")
     
-    if active_tab == "team-stats":
+    if button_id == "btn-team":
         # Statistiques équipe
         team_stats = connector.get_team_statistics(change_data.get('dv_assignment_group'))
         
         if team_stats and 'error' not in team_stats:
-            return dbc.Row([
-                dbc.Col([
-                    create_metric_card("Total changements", team_stats['total_changes'], "6 derniers mois")
-                ], width=3),
-                dbc.Col([
-                    create_metric_card("Taux de succès", f"{team_stats['success_rate']}%")
-                ], width=3),
-                dbc.Col([
-                    create_metric_card("Échecs", team_stats['failures'])
-                ], width=3),
-                dbc.Col([
-                    last_failure = team_stats.get('last_failure_date')
-                    if last_failure and pd.notna(last_failure):
-                        days_ago = (datetime.now() - pd.to_datetime(last_failure)).days
-                        create_metric_card("Dernier échec", f"Il y a {days_ago}j")
-                    else:
-                        create_metric_card("Dernier échec", "Aucun récent")
-                ], width=3)
+            # Calculer dernier échec
+            last_failure = team_stats.get('last_failure_date')
+            if last_failure and pd.notna(last_failure):
+                days_ago = (datetime.now() - pd.to_datetime(last_failure)).days
+                last_failure_text = f"Il y a {days_ago}j"
+            else:
+                last_failure_text = "Aucun récent"
+            
+            return html.Div([
+                html.Div([
+                    create_metric_card("Total changements", team_stats['total_changes'], "6 derniers mois"),
+                    create_metric_card("Taux de succès", f"{team_stats['success_rate']}%"),
+                    create_metric_card("Échecs", team_stats['failures']),
+                    create_metric_card("Dernier échec", last_failure_text)
+                ], style={"display": "flex", "justify-content": "space-around"})
             ])
         else:
-            return html.Div("⚠️ Statistiques équipe non disponibles", className="warning-box")
+            return html.Div("⚠️ Statistiques équipe non disponibles", 
+                           style={"background": "#fff3cd", "padding": "1rem", "border-radius": "8px"})
     
-    elif active_tab == "incidents":
+    elif button_id == "btn-incidents":
         # Incidents liés
         incidents_data = connector.get_solution_incidents(change_data.get('dv_cmdb_ci'))
         
         if incidents_data:
+            resolution_text = f"{incidents_data['avg_resolution_hours']}h" if incidents_data['avg_resolution_hours'] > 0 else "N/A"
+            
             return html.Div([
-                dbc.Row([
-                    dbc.Col([
-                        create_metric_card("Total incidents", incidents_data['total_incidents'], "3 derniers mois")
-                    ], width=4),
-                    dbc.Col([
-                        create_metric_card("Incidents critiques", incidents_data['critical_incidents'])
-                    ], width=4),
-                    dbc.Col([
-                        if incidents_data['avg_resolution_hours'] > 0:
-                            create_metric_card("Résolution moyenne", f"{incidents_data['avg_resolution_hours']}h")
-                        else:
-                            create_metric_card("Résolution moyenne", "N/A")
-                    ], width=4)
-                ]),
+                html.Div([
+                    create_metric_card("Total incidents", incidents_data['total_incidents'], "3 derniers mois"),
+                    create_metric_card("Incidents critiques", incidents_data['critical_incidents']),
+                    create_metric_card("Résolution moyenne", resolution_text)
+                ], style={"display": "flex", "justify-content": "space-around"}),
                 
-                html.P("🔍 Données extraites de la table incident_filtree", className="text-muted mt-2")
+                html.P("🔍 Données extraites de la table incident_filtree", 
+                       style={"text-align": "center", "color": "#666", "margin-top": "1rem"})
             ])
         else:
-            return html.Div("⚠️ Aucun incident trouvé pour cette solution/CI", className="warning-box")
+            return html.Div("⚠️ Aucun incident trouvé pour cette solution/CI", 
+                           style={"background": "#fff3cd", "padding": "1rem", "border-radius": "8px"})
     
-    elif active_tab == "similar-changes":
+    elif button_id == "btn-similar":
         # Changements similaires
         similar_changes = connector.find_similar_changes(change_data)
         
@@ -547,12 +526,13 @@ def update_context_content(active_tab):
                 ])
             ])
         else:
-            return html.Div("ℹ️ Aucun changement similaire trouvé", className="info-box")
+            return html.Div("ℹ️ Aucun changement similaire trouvé", 
+                           style={"background": "#d1ecf1", "padding": "1rem", "border-radius": "8px"})
     
     return html.Div("Contenu non disponible")
 
 # ===================================================================
-# FOOTER ET INFORMATIONS
+# FOOTER
 # ===================================================================
 
 app.layout.children.append(
@@ -568,54 +548,18 @@ app.layout.children.append(
         ], style={"padding": "2rem", "color": "#666"})
     ])
 )
-
-# ===================================================================
-# POINT D'ENTRÉE
-# ===================================================================
-
-if __name__ == '__main__':
-    app.run_server(debug=True)
 ```
 
-## 🎯 **ÉTAPES POUR IMPLÉMENTER :**
+## 🔧 **PROBLÈMES CORRIGÉS :**
 
-### **ÉTAPE 2 : Sauvegarder et tester**
-1. **Remplacer** tout le contenu de votre webapp par ce code
-2. **Sauvegarder** le fichier
-3. **Démarrer** la webapp depuis Dataiku
+1. **Erreur de syntaxe** dans les assignments à l'intérieur des listes
+2. **Suppression de dash_bootstrap_components** (pas disponible dans Dataiku)
+3. **Utilisation de html.Div** au lieu de dbc.Col/Row
+4. **Correction des conditions if/else** dans les callbacks
+5. **Gestion properly des variables globales**
 
-### **ÉTAPE 3 : Vérifier les imports**
-Si erreur d'import, ajoutez en haut :
-```python
-# Si dash_bootstrap_components pas disponible
-# Remplacer les dbc. par html. équivalents
-```
+## 🎯 **MAINTENANT ÇA DEVRAIT MARCHER :**
 
-### **ÉTAPE 4 : Test**
-- Interface devrait charger avec le header gradienté
-- Statuts des connexions affichés à gauche
-- Zone de saisie à droite
+**Remplacez tout votre code par celui-ci et testez !** 🚀
 
-**Cette webapp Dash reproduit toutes les fonctionnalités de la version Streamlit !** 🚀
-
-**Testez et dites-moi ce qui se passe !**
-
-L'utilisateur m'a dit qu'il n'y a que Dash disponible sur Dataiku, pas Streamlit. J'ai donc converti toute la webapp Streamlit en webapp Dash.
-
-Voici les principales différences que j'ai dû gérer :
-
-1. **Structure** : Dash utilise un layout déclaratif avec des composants HTML, tandis que Streamlit est plus procédural
-2. **Interactivité** : Dash utilise des callbacks pour gérer l'interactivité, tandis que Streamlit utilise des boutons et des widgets directs
-3. **CSS** : J'ai gardé le même CSS mais adapté pour Dash
-4. **Composants** : J'ai utilisé dash_bootstrap_components pour avoir des composants plus jolis
-5. **Gestion d'état** : Dash gère l'état différemment, j'ai dû utiliser des variables globales pour partager les données entre callbacks
-
-Points clés de la conversion :
-
-- **Layout principal** : Structure HTML avec des divs et des containers Bootstrap
-- **Callbacks** : Un callback principal pour l'analyse et un pour les onglets contextuels
-- **Gestion des données** : Variable globale `current_change_data` pour partager entre callbacks
-- **Affichage des résultats** : Utilisation de composants HTML pour reproduire l'apparence
-- **Onglets** : Utilisation de dcc.Tabs au lieu des tabs Streamlit
-
-La webapp devrait maintenant fonctionner avec Dash sur Dataiku et offrir les mêmes fonctionnalités que la version Streamlit.
+**L'erreur était dans la ligne où j'avais mis une assignation dans une liste de composants Dash.**
