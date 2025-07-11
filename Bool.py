@@ -1,41 +1,23 @@
-L'utilisateur a une erreur de syntaxe dans le code. Je vois le problème dans les logs :
+Je vois l'erreur ! Le problème est que le layout Dash est défini comme `None` au démarrage. L'erreur dit:
 
 ```
-File "<string>", line 470
-last_failure team_stats,get("last_failure_date')
-SyntaxError: invalid syntax, Maybe you meant '-=' or ';=' instead of '-'?
+dash.exceptions.NoLayoutException: The `layout` was "None" at the time that `run` was called. Make sure to set the layout attribute of your application before running the server.
 ```
 
-Il y a une erreur dans mon code dans la partie des callbacks. Je vois le problème - dans la fonction `update_context_content`, j'ai écrit quelque chose comme :
+Le problème vient du fait que dans mon code, j'ai défini `app.layout` mais ensuite j'ai essayé d'ajouter des éléments avec `app.layout.children.append()`, ce qui ne marche pas correctement.
 
-```python
-dbc.Col([
-    last_failure = team_stats.get('last_failure_date')
-    if last_failure and pd.notna(last_failure):
-        days_ago = (datetime.now() - pd.to_datetime(last_failure)).days
-        create_metric_card("Dernier échec", f"Il y a {days_ago}j")
-    else:
-        create_metric_card("Dernier échec", "Aucun récent")
-], width=3)
-```
+Je dois restructurer le code pour que le layout soit complet dès le début, sans essayer de le modifier après coup.
 
-Le problème c'est que j'ai mis une assignation `last_failure = ...` à l'intérieur d'un appel de fonction dbc.Col([]), ce qui n'est pas valide syntaxiquement. Je dois corriger ça.
+## 🚨 **ERREUR IDENTIFIÉE : Layout Dash non défini correctement**
 
-Aussi, il y a probablement d'autres erreurs similaires dans le code. Je dois revoir tout le code et corriger les erreurs de syntaxe.
+**Le problème:** Le layout est `None` au démarrage. Je dois corriger la structure.
 
-Voici les problèmes que je vois :
-1. L'assignation dans dbc.Col
-2. Problème potentiel avec les imports dash_bootstrap_components 
-3. Erreurs dans les conditions if/else dans les listes
-
-Je vais donner un code corrigé complètement.
-
-## 🚨 **ERREUR DE SYNTAXE DÉTECTÉE - VOICI LE CODE CORRIGÉ :**
+## 🔧 **CODE CORRIGÉ COMPLET :**
 
 ```python
 """
 WEBAPP DASH - ANALYSE DES RISQUES DE CHANGEMENT SERVICENOW
-100% DONNÉES RÉELLES - Version corrigée
+100% DONNÉES RÉELLES - Version corrigée layout
 """
 
 import dash
@@ -60,15 +42,25 @@ app = dash.Dash(__name__)
 # ===================================================================
 
 # Initialisation globale
-predictor = ChangeRiskPredictor()
-connector = ServiceNowConnector()
-
-# Variable globale pour stocker les données du changement actuel
-current_change_data = {}
-
-# Vérification du statut
-model_info = predictor.get_model_info()
-connection_status = connector.get_connection_status()
+try:
+    predictor = ChangeRiskPredictor()
+    connector = ServiceNowConnector()
+    
+    # Variable globale pour stocker les données du changement actuel
+    current_change_data = {}
+    
+    # Vérification du statut
+    model_info = predictor.get_model_info()
+    connection_status = connector.get_connection_status()
+    
+    init_success = True
+    init_error = ""
+    
+except Exception as e:
+    init_success = False
+    init_error = str(e)
+    model_info = {"status": "Erreur"}
+    connection_status = {"status": "Erreur", "error": str(e)}
 
 # ===================================================================
 # FONCTIONS UTILITAIRES
@@ -100,7 +92,7 @@ def create_status_card(title, status, details=None):
 def create_metric_card(title, value, subtitle=None):
     """Créer une carte métrique"""
     card_content = [
-        html.H3(value, style={"color": "#667eea", "margin": "0"}),
+        html.H3(str(value), style={"color": "#667eea", "margin": "0"}),
         html.P(title, style={"margin": "0.5rem 0"}),
     ]
     
@@ -119,41 +111,8 @@ def create_metric_card(title, value, subtitle=None):
         }
     )
 
-def format_similar_change(change):
-    """Formater un changement similaire"""
-    close_code = change['dv_close_code']
-    
-    if close_code == 'Succès':
-        icon = "✅"
-        bg_color = "#d4edda"
-    elif 'Échec' in str(close_code):
-        icon = "❌"
-        bg_color = "#f8d7da"
-    else:
-        icon = "⚠️"
-        bg_color = "#fff3cd"
-    
-    duration_text = ""
-    if change.get('duration_hours') is not None:
-        duration_text = f" • Durée: {change['duration_hours']}h"
-    
-    return html.Div([
-        html.P([
-            html.Strong(f"{icon} {change['number']} - {close_code}"),
-            html.Br(),
-            html.Small(change['short_description'][:100] + "..."),
-            html.Br(),
-            html.Small(f"Similarité: {change['similarity_score']}%{duration_text}")
-        ])
-    ], style={
-        "background": bg_color, 
-        "padding": "1rem", 
-        "border-radius": "8px", 
-        "margin": "0.5rem 0"
-    })
-
 # ===================================================================
-# LAYOUT PRINCIPAL
+# LAYOUT PRINCIPAL COMPLET
 # ===================================================================
 
 app.layout = html.Div([
@@ -175,6 +134,16 @@ app.layout = html.Div([
     
     # Container principal
     html.Div([
+        
+        # Affichage d'erreur d'initialisation si nécessaire
+        html.Div(
+            id="init-error",
+            children=[
+                html.Div(f"❌ Erreur d'initialisation: {init_error}", 
+                        style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px", "margin": "1rem 0"})
+            ] if not init_success else [],
+            style={"display": "block" if not init_success else "none"}
+        ),
         
         # Row pour le statut et la saisie
         html.Div([
@@ -255,12 +224,25 @@ app.layout = html.Div([
                 html.Div(id="analysis-results")
                 
             ], style={"width": "65%", "display": "inline-block", "vertical-align": "top", "padding": "1rem"})
-        ]),
+        ], style={"display": "block" if init_success else "none"}),
         
         # Zone pour les résultats détaillés
         html.Div(id="detailed-results", style={"margin-top": "2rem"})
         
-    ], style={"max-width": "1200px", "margin": "0 auto", "padding": "1rem"})
+    ], style={"max-width": "1200px", "margin": "0 auto", "padding": "1rem"}),
+    
+    # Footer intégré dans le layout principal
+    html.Footer([
+        html.Hr(),
+        html.Div([
+            html.P("🤖 Change Risk Analyzer • 100% Données Réelles ServiceNow", 
+                   style={"text-align": "center", "margin": "0"}),
+            html.P("Tables connectées: change_request_without_empty_columns & incident_filtree", 
+                   style={"text-align": "center", "margin": "0", "font-style": "italic"}),
+            html.P("ZERO SIMULATION • ZERO DONNÉES FACTICES", 
+                   style={"text-align": "center", "margin": "0", "font-weight": "bold"})
+        ], style={"padding": "2rem", "color": "#666"})
+    ])
 ])
 
 # ===================================================================
@@ -273,6 +255,10 @@ app.layout = html.Div([
 )
 def update_model_info(n_clicks):
     """Afficher les informations de performance du modèle"""
+    
+    if not init_success:
+        return html.Div("❌ Erreur d'initialisation", 
+                       style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px"})
     
     if model_info.get("status") != "Modèle chargé":
         return html.Div("❌ Modèle non disponible", 
@@ -302,6 +288,10 @@ def update_model_info(n_clicks):
 )
 def perform_analysis(analyze_clicks, test_clicks, change_ref):
     """Effectuer l'analyse du changement"""
+    
+    if not init_success:
+        return html.Div("❌ Système non initialisé", 
+                       style={"background": "#f8d7da", "padding": "1rem", "border-radius": "8px"}), ""
     
     # Déterminer quel bouton a été cliqué
     ctx = dash.callback_context
@@ -428,15 +418,16 @@ def perform_analysis(analyze_clicks, test_clicks, change_ref):
             # Informations contextuelles
             html.Hr(),
             html.H3("📈 Informations contextuelles"),
+            html.P("🔍 Données extraites des tables ServiceNow réelles", style={"color": "#666", "font-style": "italic"}),
             
-            # Onglets simulés
+            # Onglets simulés avec boutons
             html.Div([
                 html.Button("👥 Statistiques équipe", id="btn-team", n_clicks=0, 
-                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa"}),
+                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa", "border-radius": "5px"}),
                 html.Button("🛠️ Incidents liés", id="btn-incidents", n_clicks=0,
-                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa"}),
+                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa", "border-radius": "5px"}),
                 html.Button("📋 Changements similaires", id="btn-similar", n_clicks=0,
-                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa"})
+                           style={"margin": "0.5rem", "padding": "0.5rem 1rem", "border": "1px solid #ddd", "background": "#f8f9fa", "border-radius": "5px"})
             ]),
             
             html.Div(id="context-content", style={"padding": "1rem"})
@@ -455,9 +446,13 @@ def perform_analysis(analyze_clicks, test_clicks, change_ref):
 def update_context_content(team_clicks, incidents_clicks, similar_clicks):
     """Mettre à jour le contenu des onglets contextuels"""
     
+    if not init_success:
+        return html.Div("❌ Système non initialisé")
+    
     ctx = dash.callback_context
     if not ctx.triggered:
-        return html.Div("Cliquez sur un onglet pour voir les informations contextuelles")
+        return html.Div("Cliquez sur un onglet pour voir les informations contextuelles", 
+                       style={"color": "#666", "font-style": "italic", "text-align": "center", "padding": "2rem"})
     
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
@@ -487,7 +482,7 @@ def update_context_content(team_clicks, incidents_clicks, similar_clicks):
                     create_metric_card("Taux de succès", f"{team_stats['success_rate']}%"),
                     create_metric_card("Échecs", team_stats['failures']),
                     create_metric_card("Dernier échec", last_failure_text)
-                ], style={"display": "flex", "justify-content": "space-around"})
+                ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"})
             ])
         else:
             return html.Div("⚠️ Statistiques équipe non disponibles", 
@@ -505,7 +500,7 @@ def update_context_content(team_clicks, incidents_clicks, similar_clicks):
                     create_metric_card("Total incidents", incidents_data['total_incidents'], "3 derniers mois"),
                     create_metric_card("Incidents critiques", incidents_data['critical_incidents']),
                     create_metric_card("Résolution moyenne", resolution_text)
-                ], style={"display": "flex", "justify-content": "space-around"}),
+                ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
                 
                 html.P("🔍 Données extraites de la table incident_filtree", 
                        style={"text-align": "center", "color": "#666", "margin-top": "1rem"})
@@ -519,47 +514,58 @@ def update_context_content(team_clicks, incidents_clicks, similar_clicks):
         similar_changes = connector.find_similar_changes(change_data)
         
         if similar_changes:
+            similar_divs = []
+            for change in similar_changes[:5]:
+                close_code = change['dv_close_code']
+                
+                if close_code == 'Succès':
+                    icon = "✅"
+                    bg_color = "#d4edda"
+                elif 'Échec' in str(close_code):
+                    icon = "❌"
+                    bg_color = "#f8d7da"
+                else:
+                    icon = "⚠️"
+                    bg_color = "#fff3cd"
+                
+                duration_text = ""
+                if change.get('duration_hours') is not None:
+                    duration_text = f" • Durée: {change['duration_hours']}h"
+                
+                similar_divs.append(html.Div([
+                    html.P([
+                        html.Strong(f"{icon} {change['number']} - {close_code}"),
+                        html.Br(),
+                        html.Small(change['short_description'][:100] + "..."),
+                        html.Br(),
+                        html.Small(f"Similarité: {change['similarity_score']}%{duration_text}")
+                    ])
+                ], style={
+                    "background": bg_color, 
+                    "padding": "1rem", 
+                    "border-radius": "8px", 
+                    "margin": "0.5rem 0"
+                }))
+            
             return html.Div([
                 html.P("📋 Historique réel des changements similaires:"),
-                html.Div([
-                    format_similar_change(change) for change in similar_changes[:5]
-                ])
+                html.Div(similar_divs)
             ])
         else:
             return html.Div("ℹ️ Aucun changement similaire trouvé", 
                            style={"background": "#d1ecf1", "padding": "1rem", "border-radius": "8px"})
     
     return html.Div("Contenu non disponible")
-
-# ===================================================================
-# FOOTER
-# ===================================================================
-
-app.layout.children.append(
-    html.Footer([
-        html.Hr(),
-        html.Div([
-            html.P("🤖 Change Risk Analyzer • 100% Données Réelles ServiceNow", 
-                   style={"text-align": "center", "margin": "0"}),
-            html.P("Tables connectées: change_request_without_empty_columns & incident_filtree", 
-                   style={"text-align": "center", "margin": "0", "font-style": "italic"}),
-            html.P("ZERO SIMULATION • ZERO DONNÉES FACTICES", 
-                   style={"text-align": "center", "margin": "0", "font-weight": "bold"})
-        ], style={"padding": "2rem", "color": "#666"})
-    ])
-)
 ```
 
 ## 🔧 **PROBLÈMES CORRIGÉS :**
 
-1. **Erreur de syntaxe** dans les assignments à l'intérieur des listes
-2. **Suppression de dash_bootstrap_components** (pas disponible dans Dataiku)
-3. **Utilisation de html.Div** au lieu de dbc.Col/Row
-4. **Correction des conditions if/else** dans les callbacks
-5. **Gestion properly des variables globales**
+1. **Layout complet défini d'un coup** - Plus de modification après coup
+2. **Footer intégré** dans le layout principal
+3. **Gestion d'erreurs d'initialisation** avec try/catch
+4. **Layout conditionnel** si erreur d'initialisation
+5. **Variables globales** properly définies
 
-## 🎯 **MAINTENANT ÇA DEVRAIT MARCHER :**
+**Maintenant le layout devrait être correctement défini dès le démarrage !** 🚀
 
-**Remplacez tout votre code par celui-ci et testez !** 🚀
-
-**L'erreur était dans la ligne où j'avais mis une assignation dans une liste de composants Dash.**
+**Remplacez tout votre code et testez !**
