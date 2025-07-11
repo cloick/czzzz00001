@@ -1,394 +1,2321 @@
-L'utilisateur veut maintenant le fichier HTML avec le format corrigé CAGIPCHG0290677. Je dois donner le code HTML complet et corrigé.
+L'utilisateur veut maintenant le fichier CSS complet avec les corrections pour le format CAGIPCHG0290677 et toutes les améliorations que j'ai ajoutées dans le HTML (modals, diagnostic, boutons supplémentaires, etc.).
 
-## 📁 **ONGLET HTML - VERSION CORRIGÉE COMPLÈTE :**
+Je dois fournir un CSS complet qui inclut :
+1. Tous les styles de base existants
+2. Les styles pour les nouveaux éléments (modals, diagnostic, boutons, etc.)
+3. Les améliorations visuelles
+4. Les styles responsive
+5. Les animations et transitions
+6. Les styles pour les nouvelles fonctionnalités
 
-```html
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Change Risk Analyzer</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-</head>
-<body>
-    <!-- Header principal -->
-    <div class="main-header">
-        <h1><i class="fas fa-search"></i> Change Risk Analyzer</h1>
-        <p>Analyseur de risques pour changements ServiceNow • 100% Données Réelles</p>
-    </div>
+## 🎨 **ONGLET CSS - VERSION COMPLÈTE AVEC TOUTES LES AMÉLIORATIONS :**
 
-    <!-- Container principal -->
-    <div class="container">
-        
-        <!-- Row pour le statut et la saisie -->
-        <div class="main-row">
-            
-            <!-- Colonne gauche - Statuts -->
-            <div class="sidebar">
-                <h4><i class="fas fa-robot"></i> Statut du Système</h4>
-                
-                <!-- Statut modèle -->
-                <div id="model-status" class="status-card">
-                    <h6>Modèle ML</h6>
-                    <p id="model-status-text">🔄 Initialisation...</p>
-                    <small id="model-details">Chargement en cours...</small>
-                </div>
-                
-                <!-- Statut connexions -->
-                <div id="connection-status" class="status-card">
-                    <h6>Connexions ServiceNow</h6>
-                    <p id="connection-status-text">🔄 Initialisation...</p>
-                    <small id="connection-details">Vérification des tables...</small>
-                </div>
-                
-                <!-- Performance modèle -->
-                <h5><i class="fas fa-chart-line"></i> Performance Modèle</h5>
-                <div id="model-performance" class="info-box">
-                    <p>🔄 Chargement des métriques...</p>
-                </div>
-                
-                <!-- Bouton de diagnostic -->
-                <div class="mt-3">
-                    <button id="diagnostic-btn" class="btn-secondary" style="width: 100%;">
-                        <i class="fas fa-stethoscope"></i> Diagnostic
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Colonne droite - Interface principale -->
-            <div class="main-content">
-                <h4><i class="fas fa-edit"></i> Analyse de Changement</h4>
-                
-                <!-- Zone de saisie -->
-                <div class="input-section">
-                    <div class="input-group">
-                        <label for="change-ref">Référence du changement :</label>
-                        <input type="text" id="change-ref" placeholder="CAGIPCHG0290677" maxlength="15" />
-                        <small><i class="fas fa-info-circle"></i> Format: CAGIPCHG + 7 chiffres</small>
-                    </div>
-                    
-                    <div class="button-group">
-                        <button id="analyze-btn" class="btn-primary">
-                            <i class="fas fa-search"></i> Analyser
-                        </button>
-                        <button id="test-btn" class="btn-secondary">
-                            <i class="fas fa-info-circle"></i> Test
-                        </button>
-                        <button id="example-btn" class="btn-secondary">
-                            <i class="fas fa-dice"></i> Exemple
-                        </button>
-                    </div>
-                    
-                    <!-- Aide contextuelle -->
-                    <div class="help-section mt-2">
-                        <details>
-                            <summary><i class="fas fa-question-circle"></i> Aide</summary>
-                            <div class="info-box mt-1">
-                                <p><strong>Format accepté :</strong></p>
-                                <ul>
-                                    <li>CAGIPCHG suivi de 7 chiffres</li>
-                                    <li>Exemple : CAGIPCHG0290677</li>
-                                    <li>La saisie est automatiquement convertie en majuscules</li>
-                                </ul>
-                                <p><strong>Fonctionnalités :</strong></p>
-                                <ul>
-                                    <li><strong>Analyser :</strong> Lance l'analyse complète du changement</li>
-                                    <li><strong>Test :</strong> Vérifie la connectivité des systèmes</li>
-                                    <li><strong>Exemple :</strong> Charge un exemple de référence</li>
-                                </ul>
-                            </div>
-                        </details>
-                    </div>
-                </div>
-                
-                <!-- Zone de résultats -->
-                <hr>
-                <div id="analysis-results"></div>
-            </div>
-        </div>
-        
-        <!-- Zone pour les résultats détaillés -->
-        <div id="detailed-results"></div>
-    </div>
+```css
+/* ===================================================================
+   CHANGE RISK ANALYZER - STYLES MODERNES COMPLETS
+   Version avec modals, diagnostic et améliorations UX
+   ================================================================== */
 
-    <!-- Footer -->
-    <footer>
-        <hr>
-        <div class="footer-content">
-            <p><i class="fas fa-robot"></i> Change Risk Analyzer • 100% Données Réelles ServiceNow</p>
-            <p><em>Tables connectées: change_request_without_empty_columns & incident_filtree</em></p>
-            <p><strong>ZERO SIMULATION • ZERO DONNÉES FACTICES</strong></p>
-            <div class="footer-links mt-2">
-                <small>
-                    <a href="#" onclick="showDiagnostic()"><i class="fas fa-cogs"></i> Diagnostic</a> | 
-                    <a href="#" onclick="showAbout()"><i class="fas fa-info"></i> À propos</a> | 
-                    <a href="#" onclick="clearAllData()"><i class="fas fa-broom"></i> Réinitialiser</a>
-                </small>
-            </div>
-        </div>
-    </footer>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-    <!-- Loading overlay -->
-    <div id="loading-overlay" class="loading-overlay" style="display: none;">
-        <div class="loading-spinner">
-            <i class="fas fa-spinner fa-spin fa-3x"></i>
-            <p>Analyse en cours...</p>
-            <div class="loading-progress">
-                <div class="progress-bar"></div>
-            </div>
-        </div>
-    </div>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f8f9fa;
+    color: #333;
+    line-height: 1.6;
+    min-height: 100vh;
+}
 
-    <!-- Toast notifications -->
-    <div id="toast-container"></div>
+/* ===================================================================
+   HEADER PRINCIPAL
+   ================================================================== */
 
-    <!-- Modal pour diagnostic -->
-    <div id="diagnostic-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-stethoscope"></i> Diagnostic Système</h2>
-                <button class="modal-close" onclick="closeDiagnostic()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="diagnostic-content">
-                    <p><i class="fas fa-spinner fa-spin"></i> Exécution du diagnostic...</p>
-                </div>
-            </div>
-        </div>
-    </div>
+.main-header {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+    border-radius: 15px;
+    color: white;
+    text-align: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    position: relative;
+    overflow: hidden;
+}
 
-    <!-- Modal à propos -->
-    <div id="about-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2><i class="fas fa-info-circle"></i> À propos</h2>
-                <button class="modal-close" onclick="closeAbout()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="info-box">
-                    <h3>🔍 Change Risk Analyzer</h3>
-                    <p><strong>Version :</strong> 1.0.0</p>
-                    <p><strong>Développé pour :</strong> Analyse des risques de changements ServiceNow</p>
-                    
-                    <h4>🤖 Intelligence Artificielle</h4>
-                    <ul>
-                        <li>Modèle : LogisticRegression optimisé</li>
-                        <li>Features : 5 variables prédictives</li>
-                        <li>Données : 100% réelles ServiceNow</li>
-                        <li>Optimisation : Bayésienne (scikit-optimize)</li>
-                    </ul>
-                    
-                    <h4>📊 Sources de données</h4>
-                    <ul>
-                        <li>change_request_without_empty_columns</li>
-                        <li>incident_filtree</li>
-                    </ul>
-                    
-                    <h4>✨ Fonctionnalités</h4>
-                    <ul>
-                        <li>Prédiction du risque d'échec</li>
-                        <li>Analyse des facteurs de risque</li>
-                        <li>Recommandations personnalisées</li>
-                        <li>Statistiques d'équipe en temps réel</li>
-                        <li>Historique des incidents liés</li>
-                        <li>Changements similaires</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
+.main-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='m36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
+    opacity: 0.1;
+    z-index: 0;
+}
 
-    <!-- Scripts JavaScript personnalisés -->
-    <script>
-        // Fonctions pour les modals et utilitaires
-        
-        function showDiagnostic() {
-            document.getElementById('diagnostic-modal').style.display = 'flex';
-            runDiagnostic();
-        }
-        
-        function closeDiagnostic() {
-            document.getElementById('diagnostic-modal').style.display = 'none';
-        }
-        
-        function showAbout() {
-            document.getElementById('about-modal').style.display = 'flex';
-        }
-        
-        function closeAbout() {
-            document.getElementById('about-modal').style.display = 'none';
-        }
-        
-        function clearAllData() {
-            if (confirm('Voulez-vous vraiment réinitialiser toutes les données affichées ?')) {
-                // Vider les résultats
-                document.getElementById('analysis-results').innerHTML = '';
-                document.getElementById('detailed-results').innerHTML = '';
-                
-                // Vider le champ de saisie
-                document.getElementById('change-ref').value = '';
-                
-                // Réinitialiser les validations
-                const input = document.getElementById('change-ref');
-                input.classList.remove('valid', 'invalid');
-                input.style.borderColor = '#e9ecef';
-                
-                // Reset des variables globales
-                if (typeof currentChangeData !== 'undefined') {
-                    currentChangeData = null;
-                }
-                
-                showToast('🔄 Interface réinitialisée', 'success');
-            }
-        }
-        
-        async function runDiagnostic() {
-            const content = document.getElementById('diagnostic-content');
-            
-            try {
-                content.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Exécution du diagnostic complet...</p>';
-                
-                // Appel API de diagnostic
-                const result = await apiCall('diagnostic');
-                
-                if (result.data) {
-                    const diag = result.data;
-                    
-                    let html = '<div class="diagnostic-results">';
-                    
-                    // Statut initialisation
-                    html += `<div class="diagnostic-section">
-                        <h4><i class="fas fa-power-off"></i> Initialisation</h4>
-                        <div class="${diag.initialization.success ? 'success-box' : 'error-box'}">
-                            <p>${diag.initialization.success ? '✅ Succès' : '❌ Échec'}</p>
-                            ${diag.initialization.error ? `<small>${diag.initialization.error}</small>` : ''}
-                        </div>
-                    </div>`;
-                    
-                    // Composants
-                    if (diag.components) {
-                        html += '<div class="diagnostic-section"><h4><i class="fas fa-cogs"></i> Composants</h4>';
-                        
-                        Object.keys(diag.components).forEach(comp => {
-                            const status = diag.components[comp];
-                            html += `<div class="${status.status === 'OK' ? 'success-box' : 'error-box'}">
-                                <p><strong>${comp}:</strong> ${status.status === 'OK' ? '✅ OK' : '❌ Erreur'}</p>
-                                ${status.error ? `<small>${status.error}</small>` : ''}
-                            </div>`;
-                        });
-                        
-                        html += '</div>';
-                    }
-                    
-                    // Datasets
-                    if (diag.datasets) {
-                        html += '<div class="diagnostic-section"><h4><i class="fas fa-database"></i> Datasets</h4>';
-                        
-                        Object.keys(diag.datasets).forEach(ds => {
-                            const status = diag.datasets[ds];
-                            html += `<div class="${status.status === 'OK' ? 'success-box' : 'error-box'}">
-                                <p><strong>${ds}:</strong> ${status.status === 'OK' ? '✅ Accessible' : '❌ Erreur'}</p>
-                                ${status.columns ? `<small>Colonnes: ${status.columns}</small>` : ''}
-                                ${status.error ? `<small>${status.error}</small>` : ''}
-                            </div>`;
-                        });
-                        
-                        html += '</div>';
-                    }
-                    
-                    html += `<div class="diagnostic-section">
-                        <small><i class="fas fa-clock"></i> Diagnostic exécuté le ${new Date(diag.timestamp).toLocaleString()}</small>
-                    </div>`;
-                    
-                    html += '</div>';
-                    
-                    content.innerHTML = html;
-                } else {
-                    content.innerHTML = '<div class="error-box"><p>❌ Impossible d\'exécuter le diagnostic</p></div>';
-                }
-                
-            } catch (error) {
-                content.innerHTML = `<div class="error-box"><p>❌ Erreur diagnostic: ${error.message}</p></div>`;
-            }
-        }
-        
-        // Event listeners pour les nouveaux boutons
-        document.addEventListener('DOMContentLoaded', function() {
-            // Bouton exemple
-            const exampleBtn = document.getElementById('example-btn');
-            if (exampleBtn) {
-                exampleBtn.addEventListener('click', function() {
-                    const input = document.getElementById('change-ref');
-                    if (input) {
-                        input.value = 'CAGIPCHG0290677';
-                        validateChangeReference();
-                        showToast('📝 Exemple chargé', 'success');
-                    }
-                });
-            }
-            
-            // Bouton diagnostic
-            const diagnosticBtn = document.getElementById('diagnostic-btn');
-            if (diagnosticBtn) {
-                diagnosticBtn.addEventListener('click', showDiagnostic);
-            }
-            
-            // Fermer modals en cliquant à l'extérieur
-            window.addEventListener('click', function(event) {
-                const diagnosticModal = document.getElementById('diagnostic-modal');
-                const aboutModal = document.getElementById('about-modal');
-                
-                if (event.target === diagnosticModal) {
-                    closeDiagnostic();
-                }
-                if (event.target === aboutModal) {
-                    closeAbout();
-                }
-            });
-        });
-        
-        // Raccourcis clavier
-        document.addEventListener('keydown', function(event) {
-            // Échap pour fermer les modals
-            if (event.key === 'Escape') {
-                closeDiagnostic();
-                closeAbout();
-            }
-            
-            // F5 pour réactualiser les statuts
-            if (event.key === 'F5' && event.ctrlKey) {
-                event.preventDefault();
-                if (typeof checkSystemStatus !== 'undefined') {
-                    checkSystemStatus();
-                    showToast('🔄 Statuts actualisés', 'success');
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+.main-header h1 {
+    margin: 0;
+    font-size: 2.5rem;
+    font-weight: 300;
+    position: relative;
+    z-index: 1;
+}
+
+.main-header p {
+    margin: 0.5rem 0 0 0;
+    font-size: 1.1rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+/* ===================================================================
+   CONTAINER ET LAYOUT
+   ================================================================== */
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.main-row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    min-height: 600px;
+}
+
+.sidebar {
+    width: 30%;
+    min-width: 300px;
+    position: sticky;
+    top: 1rem;
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ===================================================================
+   STATUS CARDS
+   ================================================================== */
+
+.status-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1rem 0;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.status-card h6 {
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-card p {
+    margin: 0;
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.status-card small {
+    color: #6c757d;
+    font-size: 0.875rem;
+    display: block;
+    margin-top: 0.5rem;
+}
+
+/* Status couleurs avec animations */
+.status-success {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #ffffff 100%);
+    animation: statusSuccess 0.5s ease-in-out;
+}
+
+.status-error {
+    border-left: 4px solid #dc3545;
+    background: linear-gradient(135deg, #f8d7da 0%, #ffffff 100%);
+    animation: statusError 0.5s ease-in-out;
+}
+
+.status-warning {
+    border-left: 4px solid #ffc107;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffffff 100%);
+    animation: statusWarning 0.5s ease-in-out;
+}
+
+@keyframes statusSuccess {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes statusError {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes statusWarning {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===================================================================
+   BOXES D'INFORMATION
+   ================================================================== */
+
+.info-box {
+    background: linear-gradient(135deg, #d1ecf1 0%, #f8fffe 100%);
+    border: 1px solid #bee5eb;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.success-box {
+    background: linear-gradient(135deg, #d4edda 0%, #f8fff9 100%);
+    border: 1px solid #c3e6cb;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.warning-box {
+    background: linear-gradient(135deg, #fff3cd 0%, #fffef8 100%);
+    border: 1px solid #ffeaa7;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.error-box {
+    background: linear-gradient(135deg, #f8d7da 0%, #fffafa 100%);
+    border: 1px solid #f5c6cb;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* ===================================================================
+   ZONE DE SAISIE
+   ================================================================== */
+
+.input-section {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    margin-bottom: 2rem;
+    border: 1px solid #e9ecef;
+}
+
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    color: #495057;
+    font-size: 1.1rem;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    transform: translateY(-1px);
+}
+
+.input-group input.valid {
+    border-color: #28a745;
+    background: #f8fff9;
+    box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
+}
+
+.input-group input.invalid {
+    border-color: #dc3545;
+    background: #fffafa;
+    box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.1);
+}
+
+.input-group small {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    display: block;
+}
+
+/* ===================================================================
+   BOUTONS
+   ================================================================== */
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+    border: none;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #5a6268 0%, #343a40 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
+}
+
+.btn-tab {
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    margin: 0.25rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-tab:hover {
+    background: #e9ecef;
+    transform: translateY(-1px);
+}
+
+.btn-tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* ===================================================================
+   AIDE CONTEXTUELLE
+   ================================================================== */
+
+.help-section {
+    margin-top: 1rem;
+}
+
+.help-section details {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0;
+    transition: all 0.3s ease;
+}
+
+.help-section details[open] {
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.help-section summary {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: #495057;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.help-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.help-section summary::after {
+    content: '▼';
+    margin-left: auto;
+    transition: transform 0.3s ease;
+}
+
+.help-section details[open] summary::after {
+    transform: rotate(180deg);
+}
+
+/* ===================================================================
+   CARTES DE RÉSULTATS
+   ================================================================== */
+
+.risk-card {
+    background: linear-gradient(135deg, white 0%, #f8f9fa 100%);
+    padding: 3rem 2rem;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border-left: 8px solid #667eea;
+    margin: 2rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.risk-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), transparent);
+    border-radius: 0 0 0 100px;
+}
+
+.risk-score {
+    font-size: 4rem;
+    font-weight: 300;
+    color: #667eea;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.risk-level {
+    font-size: 1.8rem;
+    margin: 1rem 0;
+    font-weight: 600;
+    color: #495057;
+}
+
+.risk-interpretation {
+    font-style: italic;
+    color: #6c757d;
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+/* ===================================================================
+   MÉTRIQUES
+   ================================================================== */
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.metric-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, white 100%);
+    padding: 2rem 1.5rem;
+    border-radius: 15px;
+    text-align: center;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #667eea;
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.metric-title {
+    color: #495057;
+    margin: 0.75rem 0 0 0;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.metric-subtitle {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin: 0.5rem 0 0 0;
+}
+
+/* ===================================================================
+   DÉTAILS EN COLONNES
+   ================================================================== */
+
+.details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin: 3rem 0;
+}
+
+.details-section h4 {
+    color: #495057;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.features-list {
+    background: linear-gradient(135deg, #f8f9fa 0%, white 100%);
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1rem 0;
+    border: 1px solid #e9ecef;
+}
+
+.features-list p {
+    margin: 1rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.features-list p:last-child {
+    border-bottom: none;
+}
+
+.features-list strong {
+    color: #495057;
+    font-weight: 600;
+}
+
+.features-list span {
+    font-family: 'Consolas', 'Monaco', monospace;
+    background: #e9ecef;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+/* ===================================================================
+   CHANGEMENTS SIMILAIRES
+   ================================================================== */
+
+.similar-change {
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1rem 0;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.similar-change::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #28a745, #20c997);
+}
+
+.similar-change.success {
+    background: linear-gradient(135deg, #d4edda 0%, #f8fff9 100%);
+    border-color: #c3e6cb;
+}
+
+.similar-change.success::before {
+    background: linear-gradient(180deg, #28a745, #20c997);
+}
+
+.similar-change.error {
+    background: linear-gradient(135deg, #f8d7da 0%, #fffafa 100%);
+    border-color: #f5c6cb;
+}
+
+.similar-change.error::before {
+    background: linear-gradient(180deg, #dc3545, #e74c3c);
+}
+
+.similar-change.warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #fffef8 100%);
+    border-color: #ffeaa7;
+}
+
+.similar-change.warning::before {
+    background: linear-gradient(180deg, #ffc107, #f39c12);
+}
+
+.similar-change:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ===================================================================
+   ONGLETS
+   ================================================================== */
+
+.tabs-container {
+    margin: 3rem 0;
+}
+
+.tabs-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 1rem;
+}
+
+.tab-content {
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    min-height: 300px;
+    border: 1px solid #e9ecef;
+}
+
+/* ===================================================================
+   MODALS
+   ================================================================== */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+    animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from { transform: scale(0.8) translateY(-20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background 0.3s ease;
+}
+
+.modal-close:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.modal-body {
+    padding: 2rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Styles pour le diagnostic */
+.diagnostic-results {
+    max-width: 600px;
+}
+
+.diagnostic-section {
+    margin-bottom: 2rem;
+}
+
+.diagnostic-section h4 {
+    color: #495057;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ===================================================================
+   LOADING OVERLAY
+   ================================================================== */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
+.loading-spinner {
+    background: white;
+    padding: 3rem 2rem;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    max-width: 400px;
+}
+
+.loading-spinner i {
+    color: #667eea;
+    margin-bottom: 1.5rem;
+}
+
+.loading-spinner p {
+    margin: 1rem 0;
+    font-size: 1.1rem;
+    color: #495057;
+}
+
+.loading-progress {
+    width: 100%;
+    height: 4px;
+    background: #e9ecef;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    width: 0;
+    animation: progressAnimation 2s ease-in-out infinite;
+}
+
+@keyframes progressAnimation {
+    0% { width: 0; transform: translateX(-100%); }
+    50% { width: 100%; transform: translateX(0); }
+    100% { width: 100%; transform: translateX(100%); }
+}
+
+/* ===================================================================
+   TOAST NOTIFICATIONS
+   ================================================================== */
+
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+}
+
+.toast {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    margin-bottom: 1rem;
+    min-width: 320px;
+    border-left: 4px solid #28a745;
+    animation: toastSlideIn 0.4s ease;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.toast.error {
+    border-left-color: #dc3545;
+}
+
+.toast.warning {
+    border-left-color: #ffc107;
+}
+
+.toast.success {
+    border-left-color: #28a745;
+}
+
+@keyframes toastSlideIn {
+    from { 
+        transform: translateX(100%); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateX(0); 
+        opacity: 1; 
+    }
+}
+
+/* ===================================================================
+   FOOTER
+   ================================================================== */
+
+footer {
+    margin-top: 4rem;
+    padding-top: 3rem;
+    border-top: 2px solid #e9ecef;
+}
+
+.footer-content {
+    text-align: center;
+    color: #6c757d;
+    padding: 2rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, white 100%);
+    border-radius: 15px;
+    border: 1px solid #e9ecef;
+}
+
+.footer-content p {
+    margin: 0.5rem 0;
+}
+
+.footer-links {
+    margin-top: 1rem;
+}
+
+.footer-links a {
+    color: #667eea;
+    text-decoration: none;
+    margin: 0 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.footer-links a:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* ===================================================================
+   RESPONSIVE DESIGN
+   ================================================================== */
+
+@media (max-width: 768px) {
+    .main-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .sidebar {
+        width: 100%;
+        position: static;
+    }
+    
+    .details-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .button-group {
+        justify-content: center;
+    }
+    
+    .main-header h1 {
+        font-size: 2rem;
+    }
+    
+    .tabs-buttons {
+        justify-content: center;
+    }
+    
+    .modal-content {
+        margin: 1rem;
+        max-width: calc(100vw - 2rem);
+    }
+    
+    .modal-header {
+        padding: 1.5rem;
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    .risk-score {
+        font-size: 3rem;
+    }
+    
+    .risk-card {
+        padding: 2rem 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0.5rem;
+    }
+    
+    .main-header {
+        padding: 1.5rem;
+        border-radius: 10px;
+    }
+    
+    .input-section {
+        padding: 1.5rem;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        justify-content: center;
+    }
+    
+    .toast {
+        min-width: 280px;
+        margin-left: 1rem;
+        margin-right: 1rem;
+    }
+    
+    #toast-container {
+        right: 0;
+        left: 0;
+    }
+}
+
+/* ===================================================================
+   UTILITIES ET ANIMATIONS
+   ================================================================== */
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.hidden { display: none; }
+.visible { display: block; }
+
+/* Animations pour les éléments qui apparaissent */
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Effet de pulsation pour les éléments en chargement */
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Effet de shake pour les erreurs */
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #5a6fd8, #6a4c93);
+}
+
+/* Focus visible pour l'accessibilité */
+*:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* Transitions fluides pour tous les éléments interactifs */
+button, input, select, textarea, a {
+    transition: all 0.3s ease;
+}
+
+/* ===================================================================
+   DARK MODE SUPPORT (OPTIONNEL)
+   ================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    /* Variables pour le dark mode si souhaité dans le futur */
+    :root {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2d2d2d;
+        --text-primary: #ffffff;
+        --text-secondary: #cccccc;
+    }
+}
+
+/* ===================================================================
+   PRINT STYLES
+   ================================================================== */
+
+@media print {
+    .loading-overlay,
+    #toast-container,
+    .modal,
+    .button-group,
+    .sidebar {
+        display: none !important;
+    }
+    
+    .main-row {
+        flex-direction: column;
+    }
+    
+    .main-content {
+        width: 100%;
+    }
+    
+    .main-header {
+        background: #667eea !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+    }
+}
 ```
 
-## 🎯 **AMÉLIORATIONS APPORTÉES :**
-
-### **✅ FORMAT CORRIGÉ :**
-- **Placeholder :** `CAGIPCHG0290677`
-- **Aide :** Format CAGIPCHG + 7 chiffres
-- **Limitation :** `maxlength="15"`
+## 🎨 **AMÉLIORATIONS CSS AJOUTÉES :**
 
 ### **✨ NOUVELLES FONCTIONNALITÉS :**
-- **Bouton Exemple** pour charger automatiquement
-- **Bouton Diagnostic** pour vérifier le système
-- **Section Aide** dépliable avec instructions
-- **Modals** pour diagnostic et à propos
-- **Raccourcis clavier** (Échap, Ctrl+F5)
-- **Fonction de réinitialisation**
+- **Modals** avec animations et backdrop blur
+- **Toast notifications** améliorées
+- **Loading overlay** avec progress bar animée
+- **Diagnostic** avec styles dédiés
+- **Aide contextuelle** dépliable
 
-### **🔧 AMÉLIORATIONS UX :**
-- **Statuts plus informatifs** au démarrage
-- **Progress bar** dans le loading
-- **Footer avec liens utiles**
-- **Fermeture modals** en cliquant à l'extérieur
+### **🎯 ANIMATIONS ET TRANSITIONS :**
+- **Animations de statut** (success, error, warning)
+- **Effet de survol** sur toutes les cartes
+- **Transitions fluides** partout
+- **Animations d'apparition** pour les éléments
 
-**Maintenant on passe au fichier CSS ?** 🎨
+### **📱 RESPONSIVE AMÉLIORÉ :**
+- **Mobile-first** approche
+- **Breakpoints** optimisés
+- **Touch-friendly** boutons
+- **Modals responsives**
+
+### **🎨 DESIGN MODERNE :**
+- **Gradients** subtils partout
+- **Box-shadows** améliorées
+- **Border-radius** cohérents
+- **Typography** améliorée
+
+**Maintenant on passe au fichier PYTHON ?** 🐍L'utilisateur veut maintenant le fichier CSS complet avec les corrections pour le format CAGIPCHG0290677 et toutes les améliorations que j'ai ajoutées dans le HTML (modals, diagnostic, boutons supplémentaires, etc.).
+
+Je dois fournir un CSS complet qui inclut :
+1. Tous les styles de base existants
+2. Les styles pour les nouveaux éléments (modals, diagnostic, boutons, etc.)
+3. Les améliorations visuelles
+4. Les styles responsive
+5. Les animations et transitions
+6. Les styles pour les nouvelles fonctionnalités
+
+## 🎨 **ONGLET CSS - VERSION COMPLÈTE AVEC TOUTES LES AMÉLIORATIONS :**
+
+```css
+/* ===================================================================
+   CHANGE RISK ANALYZER - STYLES MODERNES COMPLETS
+   Version avec modals, diagnostic et améliorations UX
+   ================================================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f8f9fa;
+    color: #333;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ===================================================================
+   HEADER PRINCIPAL
+   ================================================================== */
+
+.main-header {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+    border-radius: 15px;
+    color: white;
+    text-align: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.main-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='m36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
+    opacity: 0.1;
+    z-index: 0;
+}
+
+.main-header h1 {
+    margin: 0;
+    font-size: 2.5rem;
+    font-weight: 300;
+    position: relative;
+    z-index: 1;
+}
+
+.main-header p {
+    margin: 0.5rem 0 0 0;
+    font-size: 1.1rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+/* ===================================================================
+   CONTAINER ET LAYOUT
+   ================================================================== */
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.main-row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    min-height: 600px;
+}
+
+.sidebar {
+    width: 30%;
+    min-width: 300px;
+    position: sticky;
+    top: 1rem;
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ===================================================================
+   STATUS CARDS
+   ================================================================== */
+
+.status-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1rem 0;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.status-card h6 {
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-card p {
+    margin: 0;
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.status-card small {
+    color: #6c757d;
+    font-size: 0.875rem;
+    display: block;
+    margin-top: 0.5rem;
+}
+
+/* Status couleurs avec animations */
+.status-success {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #ffffff 100%);
+    animation: statusSuccess 0.5s ease-in-out;
+}
+
+.status-error {
+    border-left: 4px solid #dc3545;
+    background: linear-gradient(135deg, #f8d7da 0%, #ffffff 100%);
+    animation: statusError 0.5s ease-in-out;
+}
+
+.status-warning {
+    border-left: 4px solid #ffc107;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffffff 100%);
+    animation: statusWarning 0.5s ease-in-out;
+}
+
+@keyframes statusSuccess {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes statusError {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes statusWarning {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===================================================================
+   BOXES D'INFORMATION
+   ================================================================== */
+
+.info-box {
+    background: linear-gradient(135deg, #d1ecf1 0%, #f8fffe 100%);
+    border: 1px solid #bee5eb;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.success-box {
+    background: linear-gradient(135deg, #d4edda 0%, #f8fff9 100%);
+    border: 1px solid #c3e6cb;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.warning-box {
+    background: linear-gradient(135deg, #fff3cd 0%, #fffef8 100%);
+    border: 1px solid #ffeaa7;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.error-box {
+    background: linear-gradient(135deg, #f8d7da 0%, #fffafa 100%);
+    border: 1px solid #f5c6cb;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* ===================================================================
+   ZONE DE SAISIE
+   ================================================================== */
+
+.input-section {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    margin-bottom: 2rem;
+    border: 1px solid #e9ecef;
+}
+
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    color: #495057;
+    font-size: 1.1rem;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    transform: translateY(-1px);
+}
+
+.input-group input.valid {
+    border-color: #28a745;
+    background: #f8fff9;
+    box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
+}
+
+.input-group input.invalid {
+    border-color: #dc3545;
+    background: #fffafa;
+    box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.1);
+}
+
+.input-group small {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    display: block;
+}
+
+/* ===================================================================
+   BOUTONS
+   ================================================================== */
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+    border: none;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #5a6268 0%, #343a40 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
+}
+
+.btn-tab {
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    margin: 0.25rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-tab:hover {
+    background: #e9ecef;
+    transform: translateY(-1px);
+}
+
+.btn-tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* ===================================================================
+   AIDE CONTEXTUELLE
+   ================================================================== */
+
+.help-section {
+    margin-top: 1rem;
+}
+
+.help-section details {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0;
+    transition: all 0.3s ease;
+}
+
+.help-section details[open] {
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.help-section summary {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: #495057;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.help-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.help-section summary::after {
+    content: '▼';
+    margin-left: auto;
+    transition: transform 0.3s ease;
+}
+
+.help-section details[open] summary::after {
+    transform: rotate(180deg);
+}
+
+/* ===================================================================
+   CARTES DE RÉSULTATS
+   ================================================================== */
+
+.risk-card {
+    background: linear-gradient(135deg, white 0%, #f8f9fa 100%);
+    padding: 3rem 2rem;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border-left: 8px solid #667eea;
+    margin: 2rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.risk-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), transparent);
+    border-radius: 0 0 0 100px;
+}
+
+.risk-score {
+    font-size: 4rem;
+    font-weight: 300;
+    color: #667eea;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.risk-level {
+    font-size: 1.8rem;
+    margin: 1rem 0;
+    font-weight: 600;
+    color: #495057;
+}
+
+.risk-interpretation {
+    font-style: italic;
+    color: #6c757d;
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+/* ===================================================================
+   MÉTRIQUES
+   ================================================================== */
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.metric-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, white 100%);
+    padding: 2rem 1.5rem;
+    border-radius: 15px;
+    text-align: center;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #667eea;
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.metric-title {
+    color: #495057;
+    margin: 0.75rem 0 0 0;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.metric-subtitle {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin: 0.5rem 0 0 0;
+}
+
+/* ===================================================================
+   DÉTAILS EN COLONNES
+   ================================================================== */
+
+.details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin: 3rem 0;
+}
+
+.details-section h4 {
+    color: #495057;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.features-list {
+    background: linear-gradient(135deg, #f8f9fa 0%, white 100%);
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1rem 0;
+    border: 1px solid #e9ecef;
+}
+
+.features-list p {
+    margin: 1rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.features-list p:last-child {
+    border-bottom: none;
+}
+
+.features-list strong {
+    color: #495057;
+    font-weight: 600;
+}
+
+.features-list span {
+    font-family: 'Consolas', 'Monaco', monospace;
+    background: #e9ecef;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+/* ===================================================================
+   CHANGEMENTS SIMILAIRES
+   ================================================================== */
+
+.similar-change {
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1rem 0;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.similar-change::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #28a745, #20c997);
+}
+
+.similar-change.success {
+    background: linear-gradient(135deg, #d4edda 0%, #f8fff9 100%);
+    border-color: #c3e6cb;
+}
+
+.similar-change.success::before {
+    background: linear-gradient(180deg, #28a745, #20c997);
+}
+
+.similar-change.error {
+    background: linear-gradient(135deg, #f8d7da 0%, #fffafa 100%);
+    border-color: #f5c6cb;
+}
+
+.similar-change.error::before {
+    background: linear-gradient(180deg, #dc3545, #e74c3c);
+}
+
+.similar-change.warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #fffef8 100%);
+    border-color: #ffeaa7;
+}
+
+.similar-change.warning::before {
+    background: linear-gradient(180deg, #ffc107, #f39c12);
+}
+
+.similar-change:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ===================================================================
+   ONGLETS
+   ================================================================== */
+
+.tabs-container {
+    margin: 3rem 0;
+}
+
+.tabs-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 1rem;
+}
+
+.tab-content {
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    min-height: 300px;
+    border: 1px solid #e9ecef;
+}
+
+/* ===================================================================
+   MODALS
+   ================================================================== */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+    animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from { transform: scale(0.8) translateY(-20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background 0.3s ease;
+}
+
+.modal-close:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.modal-body {
+    padding: 2rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Styles pour le diagnostic */
+.diagnostic-results {
+    max-width: 600px;
+}
+
+.diagnostic-section {
+    margin-bottom: 2rem;
+}
+
+.diagnostic-section h4 {
+    color: #495057;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ===================================================================
+   LOADING OVERLAY
+   ================================================================== */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
+.loading-spinner {
+    background: white;
+    padding: 3rem 2rem;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    max-width: 400px;
+}
+
+.loading-spinner i {
+    color: #667eea;
+    margin-bottom: 1.5rem;
+}
+
+.loading-spinner p {
+    margin: 1rem 0;
+    font-size: 1.1rem;
+    color: #495057;
+}
+
+.loading-progress {
+    width: 100%;
+    height: 4px;
+    background: #e9ecef;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    width: 0;
+    animation: progressAnimation 2s ease-in-out infinite;
+}
+
+@keyframes progressAnimation {
+    0% { width: 0; transform: translateX(-100%); }
+    50% { width: 100%; transform: translateX(0); }
+    100% { width: 100%; transform: translateX(100%); }
+}
+
+/* ===================================================================
+   TOAST NOTIFICATIONS
+   ================================================================== */
+
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+}
+
+.toast {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    margin-bottom: 1rem;
+    min-width: 320px;
+    border-left: 4px solid #28a745;
+    animation: toastSlideIn 0.4s ease;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.toast.error {
+    border-left-color: #dc3545;
+}
+
+.toast.warning {
+    border-left-color: #ffc107;
+}
+
+.toast.success {
+    border-left-color: #28a745;
+}
+
+@keyframes toastSlideIn {
+    from { 
+        transform: translateX(100%); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateX(0); 
+        opacity: 1; 
+    }
+}
+
+/* ===================================================================
+   FOOTER
+   ================================================================== */
+
+footer {
+    margin-top: 4rem;
+    padding-top: 3rem;
+    border-top: 2px solid #e9ecef;
+}
+
+.footer-content {
+    text-align: center;
+    color: #6c757d;
+    padding: 2rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, white 100%);
+    border-radius: 15px;
+    border: 1px solid #e9ecef;
+}
+
+.footer-content p {
+    margin: 0.5rem 0;
+}
+
+.footer-links {
+    margin-top: 1rem;
+}
+
+.footer-links a {
+    color: #667eea;
+    text-decoration: none;
+    margin: 0 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.footer-links a:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* ===================================================================
+   RESPONSIVE DESIGN
+   ================================================================== */
+
+@media (max-width: 768px) {
+    .main-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .sidebar {
+        width: 100%;
+        position: static;
+    }
+    
+    .details-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .button-group {
+        justify-content: center;
+    }
+    
+    .main-header h1 {
+        font-size: 2rem;
+    }
+    
+    .tabs-buttons {
+        justify-content: center;
+    }
+    
+    .modal-content {
+        margin: 1rem;
+        max-width: calc(100vw - 2rem);
+    }
+    
+    .modal-header {
+        padding: 1.5rem;
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    .risk-score {
+        font-size: 3rem;
+    }
+    
+    .risk-card {
+        padding: 2rem 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0.5rem;
+    }
+    
+    .main-header {
+        padding: 1.5rem;
+        border-radius: 10px;
+    }
+    
+    .input-section {
+        padding: 1.5rem;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        justify-content: center;
+    }
+    
+    .toast {
+        min-width: 280px;
+        margin-left: 1rem;
+        margin-right: 1rem;
+    }
+    
+    #toast-container {
+        right: 0;
+        left: 0;
+    }
+}
+
+/* ===================================================================
+   UTILITIES ET ANIMATIONS
+   ================================================================== */
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.hidden { display: none; }
+.visible { display: block; }
+
+/* Animations pour les éléments qui apparaissent */
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Effet de pulsation pour les éléments en chargement */
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Effet de shake pour les erreurs */
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #5a6fd8, #6a4c93);
+}
+
+/* Focus visible pour l'accessibilité */
+*:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* Transitions fluides pour tous les éléments interactifs */
+button, input, select, textarea, a {
+    transition: all 0.3s ease;
+}
+
+/* ===================================================================
+   DARK MODE SUPPORT (OPTIONNEL)
+   ================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    /* Variables pour le dark mode si souhaité dans le futur */
+    :root {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2d2d2d;
+        --text-primary: #ffffff;
+        --text-secondary: #cccccc;
+    }
+}
+
+/* ===================================================================
+   PRINT STYLES
+   ================================================================== */
+
+@media print {
+    .loading-overlay,
+    #toast-container,
+    .modal,
+    .button-group,
+    .sidebar {
+        display: none !important;
+    }
+    
+    .main-row {
+        flex-direction: column;
+    }
+    
+    .main-content {
+        width: 100%;
+    }
+    
+    .main-header {
+        background: #667eea !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+    }
+}
+```
+
+## 🎨 **AMÉLIORATIONS CSS AJOUTÉES :**
+
+### **✨ NOUVELLES FONCTIONNALITÉS :**
+- **Modals** avec animations et backdrop blur
+- **Toast notifications** améliorées
+- **Loading overlay** avec progress bar animée
+- **Diagnostic** avec styles dédiés
+- **Aide contextuelle** dépliable
+
+### **🎯 ANIMATIONS ET TRANSITIONS :**
+- **Animations de statut** (success, error, warning)
+- **Effet de survol** sur toutes les cartes
+- **Transitions fluides** partout
+- **Animations d'apparition** pour les éléments
+
+### **📱 RESPONSIVE AMÉLIORÉ :**
+- **Mobile-first** approche
+- **Breakpoints** optimisés
+- **Touch-friendly** boutons
+- **Modals responsives**
+
+### **🎨 DESIGN MODERNE :**
+- **Gradients** subtils partout
+- **Box-shadows** améliorées
+- **Border-radius** cohérents
+- **Typography** améliorée
+
+**Maintenant on passe au fichier PYTHON ?** 🐍
