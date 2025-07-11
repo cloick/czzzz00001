@@ -1,73 +1,115 @@
-Je vois les erreurs dans les images :
+L'utilisateur me montre les settings de la webapp Dataiku. Je vois des informations importantes :
 
-1. **Image 1** : Erreur de diagnostic : "apiCall is not defined"
-2. **Image 2** : Plusieurs erreurs :
-   - Modèle ML : Erreur "failed to construct 'URL': Invalid URL"
-   - Connexions ServiceNow : Erreur "failed to construct 'URL': Invalid URL" 
-   - Performance Modèle : "Erreur de chargement"
-   - Quand on clique "Analyser" : "Erreur d'analyse: Failed to construct 'URL': Invalid URL"
+1. **Backend** : 
+   - "Enable backend" est coché ✅ - donc le backend est activé
+   - Code env : "Inherit project default (DSS builtin env)"
+   - Auto-start n'est pas coché
 
-Le problème principal semble être que la fonction `apiCall` n'arrive pas à construire les URLs pour les appels API. Cela vient probablement de la fonction `getWebAppBackendUrl()` qui n'est pas définie ou qui ne fonctionne pas correctement.
+2. **API access** :
+   - "Allow querying this webapp through API" n'est pas coché ❌
 
-Dans une webapp Dataiku standard, il faut utiliser une méthode différente pour faire les appels API vers le backend Python. Je vais corriger le JavaScript pour résoudre ce problème.
+C'est probablement LE problème ! Si "API access" n'est pas activé, alors le frontend ne peut pas appeler les endpoints du backend via des requêtes HTTP.
 
-## 🚨 **PROBLÈME IDENTIFIÉ : Erreur d'URL dans apiCall**
+L'expert avait mentionné qu'il fallait "Activer ✅ Exposer le backend au frontend" mais je vois que dans cette interface, c'est plutôt "Allow querying this webapp through API" qui doit être activé.
 
-**L'erreur "Failed to construct 'URL': Invalid URL" vient de la fonction `getWebAppBackendUrl()` qui n'existe pas dans l'environnement Dataiku standard.**
+Je dois dire à l'utilisateur d'activer cette option et de sauvegarder.
 
-## 🔧 **CORRECTION JAVASCRIPT - Fonction apiCall à remplacer :**
+## 🚨 **PROBLÈME TROUVÉ ! L'API ACCESS N'EST PAS ACTIVÉ**
+
+**Je vois le problème dans vos settings !**
+
+---
+
+## 🔧 **SOLUTION IMMÉDIATE :**
+
+### **✅ Activer l'API Access :**
+
+Dans votre onglet **Settings**, section **Security** :
+
+1. **Cocher ✅ "Allow querying this webapp through API"**
+2. **Cliquer "Save" en bas de la page**
+3. **Redémarrer la webapp** (bouton Refresh)
+
+---
+
+## 🎯 **POURQUOI C'EST LE PROBLÈME :**
+
+- ✅ **"Enable backend"** est déjà coché (bon)
+- ❌ **"Allow querying this webapp through API"** n'est PAS coché (problème !)
+
+**Sans cette option activée, le frontend JavaScript ne peut pas faire d'appels fetch() vers le backend Python.**
+
+C'est exactement ce que l'expert mentionnait : **"Exposer le backend au frontend"**
+
+---
+
+## 🚀 **APRÈS AVOIR ACTIVÉ L'OPTION :**
+
+### **Testez immédiatement :**
+1. **Cochez l'option API access**
+2. **Sauvegardez**
+3. **Refreshez la webapp**
+4. **Regardez si les statuts "Modèle ML" et "Connexions ServiceNow" deviennent verts**
+
+---
+
+## 📝 **SI ÇA NE MARCHE TOUJOURS PAS APRÈS :**
+
+Utilisez cette fonction apiCall modifiée qui va tester plusieurs patterns d'URL :
 
 ```javascript
-// ===================================================================
-// API CALLS - VERSION CORRIGÉE POUR DATAIKU
-// ===================================================================
-
 async function apiCall(endpoint, params = {}) {
     try {
         console.log(`🔗 Appel API: ${endpoint}`, params);
         
-        // Construction de l'URL pour webapp Dataiku standard
-        let url = `./${endpoint}`;
+        // Plusieurs patterns à tester après activation de l'API access
+        const urlPatterns = [
+            `/${endpoint}`,                    // Direct
+            `/backend/${endpoint}`,            // Avec prefix backend
+            `./backend/${endpoint}`,           // Relatif backend
+            `/api/${endpoint}`,                // Avec prefix api
+            endpoint                           // Sans prefix
+        ];
         
-        // Ajouter les paramètres GET
-        if (Object.keys(params).length > 0) {
-            const searchParams = new URLSearchParams();
-            Object.keys(params).forEach(key => {
-                if (params[key] !== null && params[key] !== undefined) {
-                    searchParams.append(key, params[key]);
+        for (const baseUrl of urlPatterns) {
+            try {
+                let url = baseUrl;
+                
+                // Ajouter les paramètres GET
+                if (Object.keys(params).length > 0) {
+                    const searchParams = new URLSearchParams();
+                    Object.keys(params).forEach(key => {
+                        searchParams.append(key, String(params[key]));
+                    });
+                    url += `?${searchParams.toString()}`;
                 }
-            });
-            url += `?${searchParams.toString()}`;
-        }
-        
-        console.log(`📡 URL: ${url}`);
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                
+                console.log(`🧪 Test URL: ${url}`);
+                
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                console.log(`📡 Status pour ${url}: ${response.status}`);
+                
+                if (response.ok) {
+                    console.log(`✅ URL qui fonctionne: ${url}`);
+                    const data = await response.json();
+                    return data;
+                }
+                
+            } catch (error) {
+                console.log(`❌ Erreur pour ${baseUrl}: ${error.message}`);
+                continue;
             }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            throw new Error(`Réponse non-JSON reçue: ${text.substring(0, 200)}`);
-        }
-        
-        const data = await response.json();
-        console.log(`📥 Réponse ${endpoint}:`, data);
-        
-        if (data.status === 'error') {
-            throw new Error(data.message || 'Erreur inconnue');
-        }
-        
-        return data;
+        throw new Error(`Aucune URL ne fonctionne pour ${endpoint}`);
         
     } catch (error) {
         console.error(`❌ Erreur API ${endpoint}:`, error);
@@ -76,140 +118,15 @@ async function apiCall(endpoint, params = {}) {
 }
 ```
 
-## 🔧 **ALTERNATIVE - Si ça ne marche toujours pas :**
+---
 
-```javascript
-// ===================================================================
-// API CALLS - VERSION ALTERNATIVE AVEC CHEMINS ABSOLUS
-// ===================================================================
+## 🎯 **ACTIONS PRIORITAIRES :**
 
-async function apiCall(endpoint, params = {}) {
-    try {
-        console.log(`🔗 Appel API: ${endpoint}`, params);
-        
-        // Récupérer l'URL de base de la webapp
-        const baseUrl = window.location.origin + window.location.pathname;
-        
-        // Construire l'URL complète
-        let url = baseUrl;
-        if (!url.endsWith('/')) {
-            url += '/';
-        }
-        url += endpoint;
-        
-        // Ajouter les paramètres GET
-        if (Object.keys(params).length > 0) {
-            const searchParams = new URLSearchParams();
-            Object.keys(params).forEach(key => {
-                if (params[key] !== null && params[key] !== undefined) {
-                    searchParams.append(key, String(params[key]));
-                }
-            });
-            url += `?${searchParams.toString()}`;
-        }
-        
-        console.log(`📡 URL complète: ${url}`);
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            credentials: 'same-origin'  // Important pour Dataiku
-        });
-        
-        console.log(`📡 Status: ${response.status}`);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        console.log(`📥 Réponse ${endpoint}:`, data);
-        
-        if (data.status === 'error') {
-            throw new Error(data.message || 'Erreur inconnue');
-        }
-        
-        return data;
-        
-    } catch (error) {
-        console.error(`❌ Erreur API ${endpoint}:`, error);
-        
-        // Debug supplémentaire
-        console.error(`🔍 URL actuelle: ${window.location.href}`);
-        console.error(`🔍 Origin: ${window.location.origin}`);
-        console.error(`🔍 Pathname: ${window.location.pathname}`);
-        
-        throw error;
-    }
-}
-```
+1. **✅ Cocher "Allow querying this webapp through API"**
+2. **💾 Sauvegarder**
+3. **🔄 Refresh webapp**
+4. **🧪 Tester**
 
-## 🔧 **AUSSI : Fonction de debug à ajouter :**
+**C'est très probablement ÇA le problème !** 🚀
 
-```javascript
-// ===================================================================
-// FONCTION DE DEBUG POUR TESTER LES URLS
-// ===================================================================
-
-async function debugURLs() {
-    console.log("🔍 DEBUG URLs:");
-    console.log("Current URL:", window.location.href);
-    console.log("Origin:", window.location.origin);
-    console.log("Pathname:", window.location.pathname);
-    console.log("Base URL:", window.location.origin + window.location.pathname);
-    
-    // Test des endpoints
-    const endpoints = ['health', 'get_model_status', 'get_connection_status'];
-    
-    for (const endpoint of endpoints) {
-        try {
-            const url = `./${endpoint}`;
-            console.log(`Testing: ${url}`);
-            
-            const response = await fetch(url, { method: 'HEAD' });
-            console.log(`${endpoint}: ${response.status}`);
-            
-        } catch (error) {
-            console.error(`${endpoint}: ERROR - ${error.message}`);
-        }
-    }
-}
-
-// Lancer le debug au chargement
-window.debugURLs = debugURLs;
-```
-
-## 🎯 **INSTRUCTIONS DE CORRECTION :**
-
-### **1. Remplacer la fonction apiCall**
-Remplacez complètement la fonction `apiCall` dans votre JavaScript par une des versions ci-dessus.
-
-### **2. Tester avec la console**
-Ouvrez la console du navigateur (F12) et tapez :
-```javascript
-debugURLs()
-```
-
-### **3. Si ça ne marche toujours pas**
-Ajoutez cette fonction temporaire pour tester :
-```javascript
-async function testSimpleAPI() {
-    try {
-        const response = await fetch('./health');
-        const text = await response.text();
-        console.log("Response:", text);
-        return text;
-    } catch (error) {
-        console.error("Error:", error);
-        return error.message;
-    }
-}
-```
-
-## 🚀 **REMPLACEZ la fonction apiCall dans votre JavaScript et testez !**
-
-**Le problème principal est que `getWebAppBackendUrl()` n'existe pas dans l'environnement Dataiku standard.**
+**Faites ça et dites-moi si les statuts deviennent verts !**
