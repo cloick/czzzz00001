@@ -1,150 +1,174 @@
-## 🔍 **ANALYSE DU CODE - J'AI TROUVÉ LE PROBLÈME !**
+## 🔍 **TROUVONS OÙ EST LA LIGNE `change_selected` !**
 
-**En analysant le code que j'ai fourni, voici les bugs :**
+**Il y a encore une référence à `change_selected` quelque part dans votre code !**
 
 ---
 
-## 🚨 **BUG 1 : Dans `servicenow_connector.py`**
+## 🔧 **DANS `change_risk_predictor.py`, cherchez ces lignes et supprimez-les :**
 
-**La fonction `get_change_data()` retourne TOUTES les colonnes du dataset (166 colonnes) !**
+### **Dans la fonction `predict_risk_score()` :**
 
 ```python
-# LIGNE PROBLÉMATIQUE dans get_change_data()
-change_data = change_row.iloc[0].to_dict()  # ← Retourne TOUTES les colonnes !
+def predict_risk_score(self, change_data):
+    # ... code existant ...
+    
+    # Preprocessing
+    change_features = self._prepare_single_change(change_data)
+    
+    # 🚨 SUPPRIMER CETTE LIGNE si elle existe encore :
+    # change_selected = self.selector.transform(change_features)  ← SUPPRIMER !
+    
+    # 🚨 ET SUPPRIMER les références à change_selected :
+    # risk_probability = self.model.predict_proba(change_selected)[0, 0]  ← MAUVAIS
+    
+    # ✅ UTILISER DIRECTEMENT change_features :
+    risk_probability = self.model.predict_proba(change_features)[0, 0]  # ← BON
 ```
 
-**➡️ Ça envoie 166 colonnes au lieu de 5 au modèle !**
-
----
-
-## 🚨 **BUG 2 : Dans `change_risk_predictor.py`**
-
-**La fonction `_prepare_single_change()` ne fait AUCUN filtrage !**
+### **Dans la fonction `get_detailed_analysis()` :**
 
 ```python
-def _prepare_single_change(self, change_data):
-    # Convertir en DataFrame si nécessaire
-    if isinstance(change_data, dict):
-        change_df = pd.DataFrame([change_data])  # ← 166 colonnes !
-    else:
-        change_df = change_data.copy()
+def get_detailed_analysis(self, change_data):
+    # ... code existant ...
     
-    return change_df  # ← Retourne les 166 colonnes au modèle !
+    # 🚨 CHERCHER ET SUPPRIMER toute ligne avec change_selected
+    # Comme :
+    # feature_importance = self._calculate_feature_importance(change_selected)  ← SUPPRIMER
+    
+    # ✅ REMPLACER par :
+    # feature_importance = self._calculate_feature_importance(change_features)  ← BON
 ```
 
-**➡️ Le modèle reçoit 166 colonnes au lieu des 5 attendues !**
+---
+
+## 🔧 **VERSION COMPLÈTE CORRIGÉE de `predict_risk_score()` :**
+
+```python
+def predict_risk_score(self, change_data):
+    """Prédire le score de risque sans SelectKBest"""
+    
+    if not self.is_loaded:
+        raise ValueError("❌ Modèle non chargé")
+    
+    try:
+        # Preprocessing des données
+        change_features = self._prepare_single_change(change_data)
+        
+        print(f"📊 Features préparées: {change_features.columns.tolist()}")
+        print(f"📊 Shape: {change_features.shape}")
+        print(f"📊 Données: {change_features.iloc[0].to_dict()}")
+        
+        # Vérification des colonnes
+        expected_features = ['dv_u_type_change_silca', 'dv_type', 'u_cab_count', 'u_bcr', 'u_bpc']
+        
+        if list(change_features.columns) != expected_features:
+            raise ValueError(f"Features incorrectes. Attendu: {expected_features}, Reçu: {list(change_features.columns)}")
+        
+        # ✅ PRÉDICTION DIRECTE
+        risk_probability = self.model.predict_proba(change_features)[0, 0]
+        risk_score = risk_probability * 100
+        
+        print(f"🎯 Probabilité de risque: {risk_probability}")
+        print(f"🎯 Score final: {risk_score}%")
+        
+        return round(risk_score, 1)
+        
+    except Exception as e:
+        print(f"❌ Erreur dans predict_risk_score: {str(e)}")
+        raise
+```
 
 ---
 
-## 🔧 **CORRECTIONS IMMÉDIATES :**
-
-### **1. Corriger `servicenow_connector.py` :**
+## 🔧 **VERSION COMPLÈTE CORRIGÉE de `get_detailed_analysis()` :**
 
 ```python
-def get_change_data(self, change_ref):
-    # ... code existant jusqu'à ...
+def get_detailed_analysis(self, change_data):
+    """Analyse détaillée d'un changement"""
     
-    # Conversion en dictionnaire
-    change_row_full = change_row.iloc[0].to_dict()
-    
-    # ✅ FILTRER pour ne garder que les 5 colonnes nécessaires
-    required_columns = [
-        'dv_u_type_change_silca',
-        'dv_type', 
-        'u_cab_count',
-        'u_bcr',
-        'u_bpc'
-    ]
-    
-    # Créer un dict avec seulement les colonnes nécessaires
-    change_data = {}
-    for col in required_columns:
-        if col in change_row_full:
-            change_data[col] = change_row_full[col]
+    try:
+        # Calculer le score de risque
+        risk_score = self.predict_risk_score(change_data)
+        
+        # Déterminer le niveau de risque
+        if risk_score >= 70:
+            risk_level = "Très Élevé"
+            risk_color = "danger"
+        elif risk_score >= 50:
+            risk_level = "Élevé" 
+            risk_color = "warning"
+        elif risk_score >= 30:
+            risk_level = "Modéré"
+            risk_color = "info"
         else:
-            # Valeurs par défaut si colonne manquante
-            if col == 'dv_u_type_change_silca':
-                change_data[col] = 'Simple'
-            elif col == 'dv_type':
-                change_data[col] = 'Normal'
-            elif col == 'u_cab_count':
-                change_data[col] = 1
-            elif col == 'u_bcr':
-                change_data[col] = False
-            elif col == 'u_bpc':
-                change_data[col] = False
-    
-    # Ajouter les métadonnées pour l'affichage
-    change_data['dv_assignment_group'] = change_row_full.get('dv_assignment_group', 'N/A')
-    change_data['dv_cmdb_ci'] = change_row_full.get('dv_cmdb_ci', 'N/A')
-    change_data['dv_category'] = change_row_full.get('dv_category', 'N/A')
-    change_data['dv_state'] = change_row_full.get('dv_state', 'N/A')
-    change_data['short_description'] = change_row_full.get('short_description', 'N/A')
-    
-    print(f"✅ Changement {change_ref} récupéré - Colonnes ML: {[col for col in required_columns if col in change_data]}")
-    return change_data
-```
-
-### **2. Corriger `change_risk_predictor.py` :**
-
-```python
-def _prepare_single_change(self, change_data):
-    """Préparer SEULEMENT les 5 colonnes pour le modèle"""
-    
-    if isinstance(change_data, dict):
-        change_df = pd.DataFrame([change_data])
-    else:
-        change_df = change_data.copy()
-    
-    # ✅ GARDER SEULEMENT les 5 colonnes du modèle
-    model_features = ['dv_u_type_change_silca', 'dv_type', 'u_cab_count', 'u_bcr', 'u_bpc']
-    
-    # Filtrer pour ne garder que ces colonnes
-    filtered_df = change_df[model_features].copy()
-    
-    print(f"📊 Colonnes envoyées au modèle: {filtered_df.columns.tolist()}")
-    print(f"📊 Shape: {filtered_df.shape}")
-    
-    return filtered_df
-```
-
-### **3. Corriger `data_preprocessing.py` (par sécurité) :**
-
-```python
-def transform_single_change(self, change_data):
-    """Version corrigée pour 5 colonnes seulement"""
-    
-    if isinstance(change_data, dict):
-        df = pd.DataFrame([change_data])
-    else:
-        df = change_data.copy()
-    
-    # Les 5 features exactes du modèle
-    required_features = ['dv_u_type_change_silca', 'dv_type', 'u_cab_count', 'u_bcr', 'u_bpc']
-    
-    # S'assurer qu'on a seulement ces colonnes
-    df_features = df[required_features].copy()
-    
-    # Encodage des variables catégorielles
-    df_encoded = self._encode_categorical_single(df_features)
-    
-    # Imputation
-    df_final = self._imputation_single(df_encoded)
-    
-    return df_final
+            risk_level = "Faible"
+            risk_color = "success"
+        
+        # Préparer les features pour l'analyse
+        change_features = self._prepare_single_change(change_data)
+        
+        # Facteurs de risque (analyse des features)
+        risk_factors = []
+        
+        # Analyser chaque feature
+        if 'dv_u_type_change_silca' in change_features.columns:
+            silca_type = change_features['dv_u_type_change_silca'].iloc[0]
+            if silca_type == 'Complex':
+                risk_factors.append("Type de changement complexe")
+            elif silca_type == 'Simple':
+                risk_factors.append("Type de changement simple (favorable)")
+        
+        if 'dv_type' in change_features.columns:
+            change_type = change_features['dv_type'].iloc[0]
+            if change_type == 'Emergency':
+                risk_factors.append("Changement d'urgence")
+            elif change_type == 'Normal':
+                risk_factors.append("Changement normal")
+        
+        if 'u_cab_count' in change_features.columns:
+            cab_count = change_features['u_cab_count'].iloc[0]
+            if cab_count > 3:
+                risk_factors.append(f"Nombre élevé de CAB ({cab_count})")
+        
+        if 'u_bcr' in change_features.columns and change_features['u_bcr'].iloc[0]:
+            risk_factors.append("Business Case Review requis")
+            
+        if 'u_bpc' in change_features.columns and change_features['u_bpc'].iloc[0]:
+            risk_factors.append("Business Process Change")
+        
+        # Assemblage du résultat
+        result = {
+            'risk_score': risk_score,
+            'risk_level': risk_level,
+            'risk_color': risk_color,
+            'risk_factors': risk_factors,
+            'features_analyzed': {
+                'dv_u_type_change_silca': change_features.get('dv_u_type_change_silca', {}).iloc[0] if 'dv_u_type_change_silca' in change_features.columns else 'N/A',
+                'dv_type': change_features.get('dv_type', {}).iloc[0] if 'dv_type' in change_features.columns else 'N/A',
+                'u_cab_count': change_features.get('u_cab_count', {}).iloc[0] if 'u_cab_count' in change_features.columns else 'N/A',
+                'u_bcr': change_features.get('u_bcr', {}).iloc[0] if 'u_bcr' in change_features.columns else 'N/A',
+                'u_bpc': change_features.get('u_bpc', {}).iloc[0] if 'u_bpc' in change_features.columns else 'N/A'
+            },
+            'model_info': {
+                'algorithm': 'LogisticRegression',
+                'features_count': len(change_features.columns),
+                'confidence': min(100, max(50, 100 - abs(50 - risk_score)))
+            }
+        }
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ Erreur dans get_detailed_analysis: {str(e)}")
+        raise
 ```
 
 ---
 
-## 🎯 **RÉSUMÉ DU PROBLÈME :**
+## 🚀 **ACTION :**
 
-1. **ServiceNow retourne 166 colonnes** au lieu de 5
-2. **Le preprocessing ne filtre pas** les colonnes
-3. **Le modèle reçoit 166 colonnes** et panique
-4. **Il cherche ses 5 colonnes** dans un chaos de 166 colonnes
+1. **✅ Remplacez** les deux fonctions ci-dessus dans `change_risk_predictor.py`
+2. **🔄 Rebuild** les Code Libraries
+3. **🧪 Testez** à nouveau
 
-## 🚀 **SOLUTION :**
-
-**Appliquer les 3 corrections ci-dessus, rebuild les Code Libraries, et ça marchera !**
-
-**Le bug était dans la logique de filtrage des colonnes !** 🔧
+**Ça devrait éliminer toutes les références à `change_selected` !** 🎯
