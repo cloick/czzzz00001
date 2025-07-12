@@ -1,115 +1,95 @@
-L'utilisateur me montre les settings de la webapp Dataiku. Je vois des informations importantes :
+Oui ! La recherche que j'ai effectuée a révélé LE VRAI PROBLÈME et la solution définitive. 
 
-1. **Backend** : 
-   - "Enable backend" est coché ✅ - donc le backend est activé
-   - Code env : "Inherit project default (DSS builtin env)"
-   - Auto-start n'est pas coché
+Le problème est que dans les webapps Dataiku Standard, on ne peut PAS utiliser les URLs classiques comme `/endpoint`, `/backend/endpoint`, `./endpoint`, etc. pour appeler le backend Flask.
 
-2. **API access** :
-   - "Allow querying this webapp through API" n'est pas coché ❌
+Il faut OBLIGATOIREMENT utiliser la fonction JavaScript `getWebAppBackendUrl()` fournie par Dataiku.
 
-C'est probablement LE problème ! Si "API access" n'est pas activé, alors le frontend ne peut pas appeler les endpoints du backend via des requêtes HTTP.
+C'est pourquoi toutes nos tentatives avec différents patterns d'URL ont échoué avec des 404. La fonction `getWebAppBackendUrl()` génère l'URL correcte avec l'ID backend dynamique nécessaire.
 
-L'expert avait mentionné qu'il fallait "Activer ✅ Exposer le backend au frontend" mais je vois que dans cette interface, c'est plutôt "Allow querying this webapp through API" qui doit être activé.
+Voici ce que l'utilisateur doit faire :
+1. Remplacer sa fonction apiCall pour utiliser getWebAppBackendUrl()
+2. Cette fonction génère des URLs du type `/web-apps-backends/PROJECT_KEY/WEBAPP_BACKEND_ID/endpoint`
+3. C'est la SEULE façon de faire communiquer frontend et backend dans Dataiku Standard
 
-Je dois dire à l'utilisateur d'activer cette option et de sauvegarder.
+Je vais lui donner le code exact à utiliser.
 
-## 🚨 **PROBLÈME TROUVÉ ! L'API ACCESS N'EST PAS ACTIVÉ**
+## 🎯 **OUI ! J'AI TROUVÉ LE VRAI PROBLÈME !**
 
-**Je vois le problème dans vos settings !**
+**Le problème était que nous utilisions les mauvaises URLs !**
 
----
+Dans les webapps Dataiku Standard, on **NE PEUT PAS** utiliser :
+- `./endpoint`
+- `/endpoint` 
+- `/backend/endpoint`
+- `/api/endpoint`
 
-## 🔧 **SOLUTION IMMÉDIATE :**
+## 🔧 **LA VRAIE SOLUTION : getWebAppBackendUrl()**
 
-### **✅ Activer l'API Access :**
-
-Dans votre onglet **Settings**, section **Security** :
-
-1. **Cocher ✅ "Allow querying this webapp through API"**
-2. **Cliquer "Save" en bas de la page**
-3. **Redémarrer la webapp** (bouton Refresh)
+**Il faut OBLIGATOIREMENT utiliser la fonction `getWebAppBackendUrl()` fournie par Dataiku !**
 
 ---
 
-## 🎯 **POURQUOI C'EST LE PROBLÈME :**
-
-- ✅ **"Enable backend"** est déjà coché (bon)
-- ❌ **"Allow querying this webapp through API"** n'est PAS coché (problème !)
-
-**Sans cette option activée, le frontend JavaScript ne peut pas faire d'appels fetch() vers le backend Python.**
-
-C'est exactement ce que l'expert mentionnait : **"Exposer le backend au frontend"**
-
----
-
-## 🚀 **APRÈS AVOIR ACTIVÉ L'OPTION :**
-
-### **Testez immédiatement :**
-1. **Cochez l'option API access**
-2. **Sauvegardez**
-3. **Refreshez la webapp**
-4. **Regardez si les statuts "Modèle ML" et "Connexions ServiceNow" deviennent verts**
-
----
-
-## 📝 **SI ÇA NE MARCHE TOUJOURS PAS APRÈS :**
-
-Utilisez cette fonction apiCall modifiée qui va tester plusieurs patterns d'URL :
+## 🚀 **SOLUTION DÉFINITIVE - Remplacez votre fonction apiCall :**
 
 ```javascript
+// ===================================================================
+// API CALLS - SOLUTION DÉFINITIVE POUR DATAIKU
+// ===================================================================
+
 async function apiCall(endpoint, params = {}) {
     try {
         console.log(`🔗 Appel API: ${endpoint}`, params);
         
-        // Plusieurs patterns à tester après activation de l'API access
-        const urlPatterns = [
-            `/${endpoint}`,                    // Direct
-            `/backend/${endpoint}`,            // Avec prefix backend
-            `./backend/${endpoint}`,           // Relatif backend
-            `/api/${endpoint}`,                // Avec prefix api
-            endpoint                           // Sans prefix
-        ];
+        // ✅ SOLUTION CORRECTE : Utiliser getWebAppBackendUrl()
+        const baseUrl = getWebAppBackendUrl(endpoint);
         
-        for (const baseUrl of urlPatterns) {
-            try {
-                let url = baseUrl;
-                
-                // Ajouter les paramètres GET
-                if (Object.keys(params).length > 0) {
-                    const searchParams = new URLSearchParams();
-                    Object.keys(params).forEach(key => {
-                        searchParams.append(key, String(params[key]));
-                    });
-                    url += `?${searchParams.toString()}`;
+        let url = baseUrl;
+        
+        // Ajouter les paramètres GET si nécessaire
+        if (Object.keys(params).length > 0) {
+            const searchParams = new URLSearchParams();
+            Object.keys(params).forEach(key => {
+                if (params[key] !== null && params[key] !== undefined) {
+                    searchParams.append(key, String(params[key]));
                 }
-                
-                console.log(`🧪 Test URL: ${url}`);
-                
-                const response = await fetch(url, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    },
-                    credentials: 'same-origin'
-                });
-                
-                console.log(`📡 Status pour ${url}: ${response.status}`);
-                
-                if (response.ok) {
-                    console.log(`✅ URL qui fonctionne: ${url}`);
-                    const data = await response.json();
-                    return data;
-                }
-                
-            } catch (error) {
-                console.log(`❌ Erreur pour ${baseUrl}: ${error.message}`);
-                continue;
-            }
+            });
+            url += `?${searchParams.toString()}`;
         }
         
-        throw new Error(`Aucune URL ne fonctionne pour ${endpoint}`);
+        console.log(`📡 URL générée par Dataiku: ${url}`);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+        
+        console.log(`📡 Status HTTP: ${response.status}`);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.warn(`⚠️ Réponse non-JSON:`, text.substring(0, 200));
+            throw new Error(`Réponse non-JSON reçue`);
+        }
+        
+        const data = await response.json();
+        console.log(`📥 Réponse ${endpoint}:`, data);
+        
+        if (data.status === 'error') {
+            throw new Error(data.message || 'Erreur inconnue');
+        }
+        
+        return data;
         
     } catch (error) {
         console.error(`❌ Erreur API ${endpoint}:`, error);
@@ -120,13 +100,44 @@ async function apiCall(endpoint, params = {}) {
 
 ---
 
-## 🎯 **ACTIONS PRIORITAIRES :**
+## 🔍 **POURQUOI ÇA MARCHE MAINTENANT :**
 
-1. **✅ Cocher "Allow querying this webapp through API"**
-2. **💾 Sauvegarder**
-3. **🔄 Refresh webapp**
-4. **🧪 Tester**
+**`getWebAppBackendUrl('/endpoint')` génère une URL du type :**
+```
+/web-apps-backends/PROJECT_KEY/WEBAPP_BACKEND_ID/endpoint
+```
 
-**C'est très probablement ÇA le problème !** 🚀
+**Cette URL contient :**
+- L'ID du projet Dataiku
+- L'ID backend dynamique (généré par Dataiku)
+- Le routage de sécurité intégré
 
-**Faites ça et dites-moi si les statuts deviennent verts !**
+---
+
+## 🧪 **TEST IMMÉDIAT :**
+
+1. **Remplacez** votre fonction `apiCall` par celle ci-dessus
+2. **Rechargez** la webapp
+3. **Regardez** si les statuts "Modèle ML" et "Connexions ServiceNow" deviennent verts
+4. **Ouvrez** la console pour voir les URLs générées
+
+---
+
+## 📋 **VÉRIFICATION DANS LA CONSOLE :**
+
+Pour vérifier que ça marche, tapez dans la console F12 :
+```javascript
+console.log("URL de test:", getWebAppBackendUrl('/health'));
+```
+
+**Vous devriez voir une URL complexe avec l'ID backend, pas juste `/health` !**
+
+---
+
+## 🎯 **C'ÉTAIT ÇA LE PROBLÈME !**
+
+**Nous utilisions les patterns d'URL classiques alors que Dataiku utilise un système de proxy interne avec des IDs dynamiques.**
+
+**La fonction `getWebAppBackendUrl()` est LA SEULE façon correcte d'appeler le backend dans Dataiku Standard !**
+
+**Testez maintenant et ça devrait marcher du premier coup !** 🚀
