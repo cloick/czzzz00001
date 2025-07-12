@@ -1,62 +1,46 @@
-Oui ! La recherche que j'ai effectuée a révélé LE VRAI PROBLÈME et la solution définitive. 
+Ah ! Le progrès est là ! Maintenant on arrive à contacter le backend (plus de 404) mais le problème est que la réponse n'est pas du JSON. Cela signifie que :
 
-Le problème est que dans les webapps Dataiku Standard, on ne peut PAS utiliser les URLs classiques comme `/endpoint`, `/backend/endpoint`, `./endpoint`, etc. pour appeler le backend Flask.
+1. La connexion fonctionne maintenant avec getWebAppBackendUrl()
+2. Le backend répond quelque chose 
+3. Mais ce "quelque chose" n'est pas du JSON valide
 
-Il faut OBLIGATOIREMENT utiliser la fonction JavaScript `getWebAppBackendUrl()` fournie par Dataiku.
+Cela peut être :
+- Une erreur HTML (page d'erreur 500)
+- Une réponse en texte brut
+- Une erreur de format JSON côté Python
+- Un problème d'encoding
 
-C'est pourquoi toutes nos tentatives avec différents patterns d'URL ont échoué avec des 404. La fonction `getWebAppBackendUrl()` génère l'URL correcte avec l'ID backend dynamique nécessaire.
+Je dois modifier la fonction JavaScript pour qu'elle nous montre ce que le backend renvoie exactement, puis corriger le problème côté Python si nécessaire.
 
-Voici ce que l'utilisateur doit faire :
-1. Remplacer sa fonction apiCall pour utiliser getWebAppBackendUrl()
-2. Cette fonction génère des URLs du type `/web-apps-backends/PROJECT_KEY/WEBAPP_BACKEND_ID/endpoint`
-3. C'est la SEULE façon de faire communiquer frontend et backend dans Dataiku Standard
+## 🎉 **EXCELLENT PROGRÈS ! On a contourné le 404 !**
 
-Je vais lui donner le code exact à utiliser.
+**Le problème maintenant : le backend répond, mais pas en JSON valide.**
 
-## 🎯 **OUI ! J'AI TROUVÉ LE VRAI PROBLÈME !**
-
-**Le problème était que nous utilisions les mauvaises URLs !**
-
-Dans les webapps Dataiku Standard, on **NE PEUT PAS** utiliser :
-- `./endpoint`
-- `/endpoint` 
-- `/backend/endpoint`
-- `/api/endpoint`
-
-## 🔧 **LA VRAIE SOLUTION : getWebAppBackendUrl()**
-
-**Il faut OBLIGATOIREMENT utiliser la fonction `getWebAppBackendUrl()` fournie par Dataiku !**
+**Ça veut dire que `getWebAppBackendUrl()` fonctionne, mais il y a un problème de format de réponse.**
 
 ---
 
-## 🚀 **SOLUTION DÉFINITIVE - Remplacez votre fonction apiCall :**
+## 🔍 **DIAGNOSTIC : Voir ce que le backend renvoie**
+
+### **Modifiez temporairement votre fonction apiCall pour débugger :**
 
 ```javascript
-// ===================================================================
-// API CALLS - SOLUTION DÉFINITIVE POUR DATAIKU
-// ===================================================================
-
 async function apiCall(endpoint, params = {}) {
     try {
         console.log(`🔗 Appel API: ${endpoint}`, params);
         
-        // ✅ SOLUTION CORRECTE : Utiliser getWebAppBackendUrl()
         const baseUrl = getWebAppBackendUrl(endpoint);
-        
         let url = baseUrl;
         
-        // Ajouter les paramètres GET si nécessaire
         if (Object.keys(params).length > 0) {
             const searchParams = new URLSearchParams();
             Object.keys(params).forEach(key => {
-                if (params[key] !== null && params[key] !== undefined) {
-                    searchParams.append(key, String(params[key]));
-                }
+                searchParams.append(key, String(params[key]));
             });
             url += `?${searchParams.toString()}`;
         }
         
-        console.log(`📡 URL générée par Dataiku: ${url}`);
+        console.log(`📡 URL générée: ${url}`);
         
         const response = await fetch(url, {
             method: 'GET',
@@ -68,6 +52,7 @@ async function apiCall(endpoint, params = {}) {
         });
         
         console.log(`📡 Status HTTP: ${response.status}`);
+        console.log(`📡 Headers:`, [...response.headers.entries()]);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -75,21 +60,20 @@ async function apiCall(endpoint, params = {}) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.warn(`⚠️ Réponse non-JSON:`, text.substring(0, 200));
-            throw new Error(`Réponse non-JSON reçue`);
+        // 🔍 DEBUG: Voir le contenu brut de la réponse
+        const responseText = await response.text();
+        console.log(`📄 Réponse brute (${responseText.length} chars):`, responseText);
+        
+        // Vérifier si c'est du JSON valide
+        try {
+            const data = JSON.parse(responseText);
+            console.log(`✅ JSON valide:`, data);
+            return data;
+        } catch (jsonError) {
+            console.error(`❌ JSON invalide:`, jsonError.message);
+            console.error(`📄 Contenu reçu:`, responseText.substring(0, 500));
+            throw new Error(`Réponse non-JSON: ${responseText.substring(0, 100)}`);
         }
-        
-        const data = await response.json();
-        console.log(`📥 Réponse ${endpoint}:`, data);
-        
-        if (data.status === 'error') {
-            throw new Error(data.message || 'Erreur inconnue');
-        }
-        
-        return data;
         
     } catch (error) {
         console.error(`❌ Erreur API ${endpoint}:`, error);
@@ -100,44 +84,110 @@ async function apiCall(endpoint, params = {}) {
 
 ---
 
-## 🔍 **POURQUOI ÇA MARCHE MAINTENANT :**
+## 🔧 **PROBLÈME PROBABLE CÔTÉ PYTHON :**
 
-**`getWebAppBackendUrl('/endpoint')` génère une URL du type :**
-```
-/web-apps-backends/PROJECT_KEY/WEBAPP_BACKEND_ID/endpoint
-```
+### **Vérifiez votre backend Python - il manque probablement ceci :**
 
-**Cette URL contient :**
-- L'ID du projet Dataiku
-- L'ID backend dynamique (généré par Dataiku)
-- Le routage de sécurité intégré
+```python
+# ===================================================================
+# CORRECTION BACKEND PYTHON
+# ===================================================================
+
+import json
+from flask import jsonify, request
+
+# ❌ PROBLÈME FRÉQUENT - Return mal formaté
+@app.route('/get_model_status')
+def get_model_status():
+    # return "OK"  # ← MAUVAIS ! Retourne du texte, pas du JSON
+    
+    # ✅ CORRECT - Retourner du JSON
+    return jsonify({"status": "ok", "message": "Modèle opérationnel"})
+
+# ✅ STRUCTURE CORRECTE POUR TOUS VOS ENDPOINTS
+@app.route('/get_model_status')
+def get_model_status():
+    try:
+        if not init_success:
+            return jsonify({
+                "status": "error",
+                "message": "Système non initialisé",
+                "data": None
+            })
+        
+        model_info = predictor.get_model_info()
+        
+        return jsonify({
+            "status": "ok", 
+            "message": "Modèle récupéré avec succès",
+            "data": model_info
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "data": None
+        })
+
+@app.route('/get_connection_status')
+def get_connection_status():
+    try:
+        if not init_success:
+            return jsonify({
+                "status": "error",
+                "message": "Système non initialisé"
+            })
+        
+        connection_status = connector.get_connection_status()
+        
+        return jsonify({
+            "status": "ok",
+            "data": connection_status
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error", 
+            "message": str(e)
+        })
+```
 
 ---
 
-## 🧪 **TEST IMMÉDIAT :**
+## 🧪 **ÉTAPES DE DEBUG :**
 
-1. **Remplacez** votre fonction `apiCall` par celle ci-dessus
-2. **Rechargez** la webapp
-3. **Regardez** si les statuts "Modèle ML" et "Connexions ServiceNow" deviennent verts
-4. **Ouvrez** la console pour voir les URLs générées
+### **1. Remplacez votre fonction apiCall par la version debug**
+### **2. Rechargez la webapp**
+### **3. Regardez dans la console F12 ce qui s'affiche :**
+- `📄 Réponse brute` - Ça vous dira exactement ce que le backend renvoie
 
----
+### **4. Selon ce que vous voyez :**
 
-## 📋 **VÉRIFICATION DANS LA CONSOLE :**
-
-Pour vérifier que ça marche, tapez dans la console F12 :
-```javascript
-console.log("URL de test:", getWebAppBackendUrl('/health'));
+**Si vous voyez du HTML :**
+```html
+<html><head><title>500 Internal Server Error</title>...
 ```
+→ Il y a une erreur Python, regardez l'onglet **Log**
 
-**Vous devriez voir une URL complexe avec l'ID backend, pas juste `/health` !**
+**Si vous voyez du texte brut :**
+```
+OK
+```
+→ Votre backend utilise `return "OK"` au lieu de `return jsonify({"status": "OK"})`
+
+**Si vous voyez du JSON mal formaté :**
+```
+{"status": "ok" "message": "erreur"}  // virgule manquante
+```
+→ Erreur de syntaxe JSON côté Python
 
 ---
 
-## 🎯 **C'ÉTAIT ÇA LE PROBLÈME !**
+## 🎯 **ACTIONS PRIORITAIRES :**
 
-**Nous utilisions les patterns d'URL classiques alors que Dataiku utilise un système de proxy interne avec des IDs dynamiques.**
+1. **✅ Remplacer la fonction apiCall** par la version debug
+2. **📄 Regarder ce que dit "Réponse brute" dans la console**
+3. **🔧 Corriger le backend Python** selon ce qu'on trouve
 
-**La fonction `getWebAppBackendUrl()` est LA SEULE façon correcte d'appeler le backend dans Dataiku Standard !**
-
-**Testez maintenant et ça devrait marcher du premier coup !** 🚀
+**Dites-moi ce que vous voyez dans "Réponse brute" et on corrige immédiatement !** 🚀
