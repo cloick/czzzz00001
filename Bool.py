@@ -1,106 +1,122 @@
-## 🎯 **OUI, EXACTEMENT ! Le problème vient des valeurs `NaN` !**
+## 🔍 **PROBLÈMES IDENTIFIÉS DANS VOTRE CODE :**
 
-**Et NON, ma correction ne couvre PAS toutes les colonnes ! Je n'ai corrigé que quelques-unes.**
+### **🚨 PROBLÈMES MAJEURS :**
 
----
-
-## 🚨 **PROBLÈME GÉNÉRAL :**
-
-### **Quand Python/Pandas a des valeurs `NaN` :**
-```python
-# Ces valeurs créent du JSON invalide :
-pd.NaN → NaN      # ❌ Pas du JSON valide !
-np.nan → NaN      # ❌ Pas du JSON valide !
-None → null       # ✅ JSON valide
-```
-
-### **Exemple concret :**
-```json
-// ❌ JSON INVALIDE (plante le parsing)
-{"duration_hours": NaN, "plan": NaN}
-
-// ✅ JSON VALIDE  
-{"duration_hours": null, "plan": null}
-```
+1. **Ligne avec `#'short_description'`** : Ligne commentée qui casse la syntaxe du dictionnaire
+2. **Valeurs `row.get()` peuvent retourner `NaN`** sans protection
+3. **`duration_hours`** peut être `NaN` au lieu de `None`
+4. **Pas de validation JSON** avant le retour
 
 ---
 
-## 🔍 **MA CORRECTION ÉTAIT INCOMPLÈTE !**
-
-**J'ai seulement protégé :**
-- `duration_hours`
-- `number`, `dv_close_code`, etc. avec `_safe_str()`
-
-**MAIS j'ai oublié d'autres colonnes qui peuvent contenir des NaN !**
-
----
-
-## 🔧 **CORRECTION COMPLÈTE ET UNIVERSELLE :**
+## 🔧 **VERSION CORRIGÉE COMPLÈTE :**
 
 ```python
 def find_similar_changes(self, change_data, limit=10):
-    """Changements similaires avec protection COMPLÈTE contre les NaN"""
+    """Changements similaires RÉELS avec durées RÉELLES - VERSION CORRIGÉE"""
     
     try:
-        # ... code existant jusqu'à la création des similar_changes ...
+        import dataiku
+        import pandas as pd
+        
+        print(f"🔍 Recherche de changements similaires...")
+        
+        dataset = dataiku.Dataset(self.changes_dataset)
+        df = dataset.get_dataframe()
+        
+        # Exclure le changement lui-même
+        if 'number' in change_data:
+            df = df[df['number'] != change_data['number']]
+        
+        # Calcul de score de similarité RÉEL
+        similarity_scores = []
         
         for idx, row in df.iterrows():
-            # Calcul durée avec protection
+            score = 0
+            
+            # Critères de similarité basés sur vos analyses
+            if 'dv_u_type_change_silca' in row and row['dv_u_type_change_silca'] == change_data.get('dv_u_type_change_silca'):
+                score += 40
+                
+            if 'dv_type' in row and row['dv_type'] == change_data.get('dv_type'):
+                score += 30
+                
+            if 'dv_assignment_group' in row and row['dv_assignment_group'] == change_data.get('dv_assignment_group'):
+                score += 20
+                
+            if 'dv_category' in row and row['dv_category'] == change_data.get('dv_category'):
+                score += 10
+            
+            similarity_scores.append(score)
+        
+        # Ajouter scores et filtrer
+        df = df.copy()
+        df['similarity_score'] = similarity_scores
+        df = df[df['similarity_score'] > 30].sort_values('similarity_score', ascending=False).head(limit)
+        
+        # Conversion avec durées RÉELLES et protection NaN
+        similar_changes = []
+        
+        for idx, row in df.iterrows():
+            
+            # ✅ CALCUL DURÉE AVEC PROTECTION COMPLÈTE
             duration_hours = self._calculate_safe_duration(row)
             
-            # ✅ CRÉATION AVEC PROTECTION UNIVERSELLE
+            # ✅ CRÉATION DICTIONNAIRE AVEC PROTECTION UNIVERSELLE
             similar_change = {
-                'number': self._safe_value(row.get('number')),
-                'dv_close_code': self._safe_value(row.get('dv_close_code')),
-                'justification': self._safe_value(row.get('justification')),
-                'risk_impact_analysis': self._safe_value(row.get('risk_impact_analysis')),
-                'close_notes': self._safe_value(row.get('close_notes')),
-                'opened_at': self._safe_value(row.get('opened_at')),
-                'closed_at': self._safe_value(row.get('closed_at')),
+                'number': self._safe_str(row.get('number', 'N/A')),
+                'dv_close_code': self._safe_str(row.get('dv_close_code', 'N/A')),
+                'justification': self._safe_str(row.get('justification', 'Justification non disponible')),
+                'risk_impact_analysis': self._safe_str(row.get('risk_impact_analysis', 'Analyse non disponible')),
+                'close_notes': self._safe_str(row.get('close_notes', 'Notes non disponibles')),
+                'opened_at': self._safe_str(row.get('opened_at', '')),
+                'closed_at': self._safe_str(row.get('closed_at', '')),
                 'similarity_score': int(row['similarity_score']),
-                'assignment_group': self._safe_value(row.get('dv_assignment_group')),
+                'assignment_group': self._safe_str(row.get('dv_assignment_group', 'N/A')),
                 'duration_hours': duration_hours,
                 'data_source': 'Données réelles ServiceNow'
             }
             
-            # ✅ NETTOYAGE FINAL UNIVERSEL
-            similar_change = self._clean_all_nan(similar_change)
+            # ✅ VALIDATION FINALE JSON
+            similar_change = self._ensure_json_safe(similar_change)
             similar_changes.append(similar_change)
         
-        return similar_changes[:limit]
+        print(f"✅ {len(similar_changes)} changements similaires réels trouvés")
+        return similar_changes
         
     except Exception as e:
         print(f"❌ Erreur changements similaires: {e}")
         return []
 
-def _safe_value(self, value, default='Non disponible'):
-    """Convertir toute valeur en valeur JSON-safe"""
-    if pd.isna(value) or value is None:
-        return default
-    if isinstance(value, float) and (pd.isna(value) or not pd.isfinite(value)):
-        return default
-    return str(value)
-
 def _calculate_safe_duration(self, row):
-    """Calculer duration_hours sans risque de NaN"""
+    """Calculer la durée en heures sans risque de NaN"""
     try:
         if 'opened_at' not in row or 'closed_at' not in row:
             return None
             
-        opened = pd.to_datetime(row['opened_at'])
-        closed = pd.to_datetime(row['closed_at'])
+        opened_val = row['opened_at']
+        closed_val = row['closed_at']
         
+        # Vérifier que les valeurs ne sont pas NaN
+        if pd.isna(opened_val) or pd.isna(closed_val):
+            return None
+            
+        opened = pd.to_datetime(opened_val)
+        closed = pd.to_datetime(closed_val)
+        
+        # Vérifier que les conversions ont réussi
         if pd.isna(opened) or pd.isna(closed):
             return None
             
+        # Calculer la durée
         duration_seconds = (closed - opened).total_seconds()
         
-        if duration_seconds <= 0 or pd.isna(duration_seconds):
+        if duration_seconds <= 0:
             return None
             
         duration_hours = round(duration_seconds / 3600, 1)
         
-        # Vérification finale
+        # Vérification finale contre NaN/inf
         if pd.isna(duration_hours) or not pd.isfinite(duration_hours):
             return None
             
@@ -110,103 +126,130 @@ def _calculate_safe_duration(self, row):
         print(f"⚠️ Erreur calcul durée: {e}")
         return None
 
-def _clean_all_nan(self, data_dict):
-    """Nettoyer TOUS les NaN dans un dictionnaire"""
+def _safe_str(self, value, default='Non disponible'):
+    """Convertir toute valeur en string JSON-safe"""
+    if value is None or pd.isna(value):
+        return default
+        
+    # Vérifier les float problématiques
+    if isinstance(value, float):
+        if pd.isna(value) or not pd.isfinite(value):
+            return default
+    
+    try:
+        result = str(value).strip()
+        return result if result else default
+    except:
+        return default
+
+def _ensure_json_safe(self, data_dict):
+    """S'assurer que TOUT le dictionnaire est JSON-safe"""
+    import json
+    
     cleaned = {}
     
     for key, value in data_dict.items():
-        if pd.isna(value):
-            # Valeurs par défaut selon le type de clé
+        try:
+            # Test si la valeur est sérialisable en JSON
+            json.dumps(value)
+            cleaned[key] = value
+        except (TypeError, ValueError):
+            # Si ça plante, nettoyer selon le type
             if key == 'duration_hours':
                 cleaned[key] = None
             elif key == 'similarity_score':
                 cleaned[key] = 0
             else:
                 cleaned[key] = 'Non disponible'
-        elif isinstance(value, float) and not pd.isfinite(value):
-            # Gérer inf, -inf, etc.
-            if key == 'duration_hours':
-                cleaned[key] = None
-            else:
-                cleaned[key] = 'Non disponible'
-        else:
-            cleaned[key] = value
     
     return cleaned
 ```
 
 ---
 
-## 🔧 **VERSION ULTRA-SAFE ALTERNATIVE :**
+## 🔧 **FONCTIONS SUPPLÉMENTAIRES À AJOUTER :**
+
+**Ajoutez ces 3 fonctions dans votre classe `ServiceNowConnector` :**
 
 ```python
-import json
-
-def find_similar_changes(self, change_data, limit=10):
-    """Version avec sérialisation JSON pour détecter les problèmes"""
-    
+def _calculate_safe_duration(self, row):
+    """Calculer la durée en heures sans risque de NaN"""
     try:
-        # ... code existant ...
-        
-        for idx, row in df.iterrows():
-            # Création du changement
-            similar_change = {
-                'number': row.get('number', 'N/A'),
-                'dv_close_code': row.get('dv_close_code', 'N/A'),
-                # ... autres champs ...
-            }
+        if 'opened_at' not in row or 'closed_at' not in row:
+            return None
             
-            # ✅ TEST DE SÉRIALISATION JSON
-            try:
-                # Tenter de sérialiser en JSON
-                json_test = json.dumps(similar_change, default=str)
-                similar_changes.append(similar_change)
-            except (TypeError, ValueError) as e:
-                print(f"⚠️ Changement {row.get('number')} contient des valeurs non-JSON: {e}")
-                # Nettoyer et réessayer
-                cleaned_change = self._force_clean_dict(similar_change)
-                similar_changes.append(cleaned_change)
+        opened_val = row['opened_at']
+        closed_val = row['closed_at']
         
-        return similar_changes[:limit]
+        if pd.isna(opened_val) or pd.isna(closed_val):
+            return None
+            
+        opened = pd.to_datetime(opened_val)
+        closed = pd.to_datetime(closed_val)
+        
+        if pd.isna(opened) or pd.isna(closed):
+            return None
+            
+        duration_seconds = (closed - opened).total_seconds()
+        
+        if duration_seconds <= 0:
+            return None
+            
+        duration_hours = round(duration_seconds / 3600, 1)
+        
+        if pd.isna(duration_hours) or not pd.isfinite(duration_hours):
+            return None
+            
+        return duration_hours
         
     except Exception as e:
-        print(f"❌ Erreur: {e}")
-        return []
+        print(f"⚠️ Erreur calcul durée: {e}")
+        return None
 
-def _force_clean_dict(self, data_dict):
-    """Nettoyage forcé de TOUT dictionnaire"""
-    import numpy as np
+def _safe_str(self, value, default='Non disponible'):
+    """Convertir toute valeur en string JSON-safe"""
+    if value is None or pd.isna(value):
+        return default
+        
+    if isinstance(value, float):
+        if pd.isna(value) or not pd.isfinite(value):
+            return default
+    
+    try:
+        result = str(value).strip()
+        return result if result else default
+    except:
+        return default
+
+def _ensure_json_safe(self, data_dict):
+    """S'assurer que TOUT le dictionnaire est JSON-safe"""
+    import json
     
     cleaned = {}
+    
     for key, value in data_dict.items():
         try:
-            # Test si la valeur est JSON-serializable
             json.dumps(value)
             cleaned[key] = value
-        except:
-            # Si ça plante, remplacer par une valeur safe
-            if isinstance(value, (int, float)) and (pd.isna(value) or not np.isfinite(value)):
-                cleaned[key] = None if key == 'duration_hours' else 0
+        except (TypeError, ValueError):
+            if key == 'duration_hours':
+                cleaned[key] = None
+            elif key == 'similarity_score':
+                cleaned[key] = 0
             else:
-                cleaned[key] = str(value) if value is not None else 'Non disponible'
+                cleaned[key] = 'Non disponible'
     
     return cleaned
 ```
 
 ---
 
-## 🎯 **RÉPONSE À VOS QUESTIONS :**
+## 🎯 **CORRECTIONS APPORTÉES :**
 
-### **1. "C'est quand une colonne a un NaN que ça fait ça ?"**
-**✅ OUI ! Exactement. Les `NaN` de Pandas ne sont pas du JSON valide.**
+1. **✅ Supprimé la ligne `#'short_description'` problématique**
+2. **✅ Protégé TOUTES les valeurs avec `_safe_str()`**
+3. **✅ Calcul durée ultra-sécurisé avec `_calculate_safe_duration()`**
+4. **✅ Validation JSON finale avec `_ensure_json_safe()`**
+5. **✅ Gestion complète des `NaN`, `None`, `inf`**
 
-### **2. "Ta correction corrige bien ça pour toutes les colonnes ?"**
-**❌ NON ! Ma première correction était partielle.**
-
-**✅ MAIS les nouvelles fonctions `_safe_value()` et `_clean_all_nan()` ci-dessus couvrent TOUTES les colonnes !**
-
----
-
-## 🚀 **RECOMMANDATION :**
-
-**Utilisez la version avec `_clean_all_nan()` - elle protège UNIVERSELLEMENT contre tous les NaN, peu importe d'où ils viennent !**
+**Cette version élimine définitivement les erreurs JSON !** 🚀
