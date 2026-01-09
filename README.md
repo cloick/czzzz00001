@@ -1,19 +1,116 @@
-Ah oui ! **Je vois le problème !** 🔍
-
-En enlevant `USERELATIONSHIP`, la relation **INACTIVE** sur Tribu ne fonctionne plus !
-
-**Le problème :**
-```dax
-'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
-```
-→ Ça ne marche pas car il n'y a pas de relation active entre `appops_secu[Tribu]` et la table ! ❌
+Parfait ! Voici **5 solutions complètement différentes** pour VCECloturés. On teste et tu me dis laquelle marche ! 🎯
 
 ---
 
-## Solution : Garder USERELATIONSHIP + Forcer le contexte Appops
+## SOLUTION 1 : CALCULATETABLE avec double filtre
 
 ```dax
-VCECloturés = 
+VCECloturés_V1 = 
+VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
+VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
+
+VAR CountByAppops = 
+    CALCULATE(
+        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
+        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
+    )
+
+VAR CountByTribu = 
+    DISTINCTCOUNT(
+        CALCULATETABLE(
+            VALUES('SourceMoisM-1-Appops360'[OriginalId]),
+            'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
+            'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
+            'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
+        )
+    )
+
+RETURN
+    IF(
+        NOT(ISBLANK(SelectedTribu)),
+        CountByTribu,
+        CountByAppops
+    )
+```
+
+---
+
+## SOLUTION 2 : COUNTX + FILTER
+
+```dax
+VCECloturés_V2 = 
+VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
+VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
+
+VAR CountByAppops = 
+    CALCULATE(
+        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
+        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
+    )
+
+VAR CountByTribu = 
+    COUNTX(
+        VALUES('SourceMoisM-1-Appops360'[OriginalId]),
+        IF(
+            CALCULATE(
+                COUNTROWS('SourceMoisM-1-Appops360'),
+                'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
+                'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
+                'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
+            ) > 0,
+            1,
+            BLANK()
+        )
+    )
+
+RETURN
+    IF(
+        NOT(ISBLANK(SelectedTribu)),
+        CountByTribu,
+        CountByAppops
+    )
+```
+
+---
+
+## SOLUTION 3 : ALL + double FILTER
+
+```dax
+VCECloturés_V3 = 
+VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
+VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
+
+VAR CountByAppops = 
+    CALCULATE(
+        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
+        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
+    )
+
+VAR CountByTribu = 
+    CALCULATE(
+        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
+        FILTER(
+            ALL('SourceMoisM-1-Appops360'),
+            'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
+            && 'SourceMoisM-1-Appops360'[Appops] = SelectedAppops
+            && 'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
+        )
+    )
+
+RETURN
+    IF(
+        NOT(ISBLANK(SelectedTribu)),
+        CountByTribu,
+        CountByAppops
+    )
+```
+
+---
+
+## SOLUTION 4 : KEEPFILTERS pour préserver contexte
+
+```dax
+VCECloturés_V4 = 
 VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
 VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
 
@@ -27,8 +124,8 @@ VAR CountByTribu =
     CALCULATE(
         DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
         'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
-        'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,  // ← Force le contexte Appops
-        USERELATIONSHIP(appops_secu[Tribu], 'SourceMoisM-1-Appops360'[Tribu])  // ← Active relation Tribu
+        KEEPFILTERS('SourceMoisM-1-Appops360'[Appops] = SelectedAppops),
+        KEEPFILTERS('SourceMoisM-1-Appops360'[Tribu] = SelectedTribu)
     )
 
 RETURN
@@ -41,25 +138,35 @@ RETURN
 
 ---
 
-## VCEDetectés (même correction)
+## SOLUTION 5 : ADDCOLUMNS + COUNTROWS (la plus simple)
 
 ```dax
-VCEDetectés = 
+VCECloturés_V5 = 
 VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
 VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
 
 VAR CountByAppops = 
     CALCULATE(
-        DISTINCTCOUNT('SourceMoisActuel-Appops360'[OriginalId]),
-        'SourceMoisActuel-Appops360'[EstDetecté] = "Oui"
+        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
+        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
+    )
+
+VAR TableFiltrée = 
+    FILTER(
+        'SourceMoisM-1-Appops360',
+        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
+        && 'SourceMoisM-1-Appops360'[Appops] = SelectedAppops
+        && 'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
     )
 
 VAR CountByTribu = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisActuel-Appops360'[OriginalId]),
-        'SourceMoisActuel-Appops360'[EstDetecté] = "Oui",
-        'SourceMoisActuel-Appops360'[Appops] = SelectedAppops,
-        USERELATIONSHIP(appops_secu[Tribu], 'SourceMoisActuel-Appops360'[Tribu])
+    COUNTROWS(
+        DISTINCT(
+            SELECTCOLUMNS(
+                TableFiltrée,
+                "ID", 'SourceMoisM-1-Appops360'[OriginalId]
+            )
+        )
     )
 
 RETURN
@@ -72,22 +179,14 @@ RETURN
 
 ---
 
-## Explication
+## TEST
 
-**Maintenant on a les DEUX filtres :**
+**Créé les 5 mesures (V1, V2, V3, V4, V5)**
 
-1. **`[Appops] = SelectedAppops`** → Force le filtre sur l'Appops sélectionnée
-2. **`USERELATIONSHIP(...)`** → Active la relation inactive sur Tribu
+**Affiche-les dans 5 cartes côte à côte**
 
-**Résultat :**
-- AppOps_D > Tribu_D → Filtre sur **AppOps_D ET Tribu_D** = 8 ✅
+**Sélectionne AppOps_D > Tribu_D**
 
----
+**→ Dis-moi laquelle(s) affiche(nt) 8 !** 🎯
 
-**Teste cette version !** 🎯
-
-Normalement maintenant :
-- Sélection Tribu → Affiche un nombre (pas vide)
-- AppOps_D > Tribu_D → Affiche 8 (pas 283)
-
-Dis-moi ! 💪
+Une fois qu'on sait laquelle marche, on l'applique aussi à VCEDetectés ! 💪
