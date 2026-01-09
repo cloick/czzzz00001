@@ -1,8 +1,16 @@
-Voici la correction complète ! 👍
+Ah oui ! **Je vois le problème !** 🔍
+
+En enlevant `USERELATIONSHIP`, la relation **INACTIVE** sur Tribu ne fonctionne plus !
+
+**Le problème :**
+```dax
+'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
+```
+→ Ça ne marche pas car il n'y a pas de relation active entre `appops_secu[Tribu]` et la table ! ❌
 
 ---
 
-## VCECloturés (version corrigée complète)
+## Solution : Garder USERELATIONSHIP + Forcer le contexte Appops
 
 ```dax
 VCECloturés = 
@@ -19,8 +27,8 @@ VAR CountByTribu =
     CALCULATE(
         DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
         'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
-        'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
-        'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
+        'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,  // ← Force le contexte Appops
+        USERELATIONSHIP(appops_secu[Tribu], 'SourceMoisM-1-Appops360'[Tribu])  // ← Active relation Tribu
     )
 
 RETURN
@@ -33,7 +41,7 @@ RETURN
 
 ---
 
-## VCEDetectés (version corrigée complète)
+## VCEDetectés (même correction)
 
 ```dax
 VCEDetectés = 
@@ -51,7 +59,7 @@ VAR CountByTribu =
         DISTINCTCOUNT('SourceMoisActuel-Appops360'[OriginalId]),
         'SourceMoisActuel-Appops360'[EstDetecté] = "Oui",
         'SourceMoisActuel-Appops360'[Appops] = SelectedAppops,
-        'SourceMoisActuel-Appops360'[Tribu] = SelectedTribu
+        USERELATIONSHIP(appops_secu[Tribu], 'SourceMoisActuel-Appops360'[Tribu])
     )
 
 RETURN
@@ -64,27 +72,22 @@ RETURN
 
 ---
 
-## Ce qui a changé
+## Explication
 
-**Avant (dans CountByTribu) :**
-```dax
-ALL('SourceMoisM-1-Appops360'[Appops]),
-USERELATIONSHIP(appops_secu[Tribu], 'SourceMoisM-1-Appops360'[Tribu])
-```
+**Maintenant on a les DEUX filtres :**
 
-**Après (dans CountByTribu) :**
-```dax
-'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
-'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
-```
+1. **`[Appops] = SelectedAppops`** → Force le filtre sur l'Appops sélectionnée
+2. **`USERELATIONSHIP(...)`** → Active la relation inactive sur Tribu
 
-**Et ajout au début :**
-```dax
-VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
-```
+**Résultat :**
+- AppOps_D > Tribu_D → Filtre sur **AppOps_D ET Tribu_D** = 8 ✅
 
 ---
 
-**Copie-colle ces deux mesures et teste !** 🎯
+**Teste cette version !** 🎯
 
-Normalement AppOps_D > Tribu_D devrait maintenant donner **8** et non 283 ! 💪
+Normalement maintenant :
+- Sélection Tribu → Affiche un nombre (pas vide)
+- AppOps_D > Tribu_D → Affiche 8 (pas 283)
+
+Dis-moi ! 💪
