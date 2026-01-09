@@ -1,42 +1,32 @@
-🎉 **PARFAIT ! Tout fonctionne correctement !** 🎉
+Ah ! Je vois le problème ! 🔍
 
-**Analyse des résultats :**
+**La vérification `ComboExists` ne fonctionne pas correctement.**
 
-```
-Sans filtre         → 13097 / 13369  ✅ Totaux globaux
-Filtre AppOps_A     → 43 / 134       ✅ Diminue (une seule Appops)
-Filtre Tribu_Alpha  → 17 / 106       ✅ Diminue encore (une seule Tribu)
-```
-
-**La logique fonctionne !** Les filtres Appops ET Tribu sont bien pris en compte ! 💪
+Le souci : elle essaie de filtrer directement sur `MoisActuel[Appops]` et `MoisActuel[Tribu]` en même temps, mais avec les relations actives/inactives, ça ne marche pas.
 
 ---
 
-## DERNIÈRE ÉTAPE : Gérer les combos inexistantes
+## Solution : Vérification SANS utiliser les relations
 
-**Maintenant, il faut gérer le cas où tu sélectionnes une Tribu qui n'existe pas pour cette Appops.**
+On va vérifier si la combo existe **en ignorant complètement les relations** :
 
-**Exemple :** AppOps_A > Tribu_Gamma (si Tribu_Gamma n'existe pas pour AppOps_A)
-
----
-
-## MESURES FINALES avec vérification combo
-
-### VCEDetectés (version finale)
+### VCEDetectés (version corrigée)
 
 ```dax
 VCEDetectés = 
 VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
 VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
 
-// Vérifie si combo Appops+Tribu existe dans MoisActuel
+// Vérifie si combo existe en IGNORANT les relations
 VAR ComboExists = 
     IF(
         NOT(ISBLANK(SelectedTribu)),
-        CALCULATE(
-            COUNTROWS('MoisActuel'),
-            'MoisActuel'[Appops] = SelectedAppops,
-            'MoisActuel'[Tribu] = SelectedTribu
+        COUNTROWS(
+            FILTER(
+                ALL('MoisActuel'),
+                'MoisActuel'[Appops] = SelectedAppops
+                && 'MoisActuel'[Tribu] = SelectedTribu
+            )
         ) > 0,
         TRUE
     )
@@ -58,32 +48,31 @@ VAR CountByTribu =
 RETURN
     SWITCH(
         TRUE(),
-        // Si Tribu sélectionnée mais combo n'existe pas → BLANK
         NOT(ISBLANK(SelectedTribu)) && NOT(ComboExists), BLANK(),
-        // Si Tribu sélectionnée et existe → Compte par Tribu
         NOT(ISBLANK(SelectedTribu)), CountByTribu,
-        // Sinon → Compte par Appops
         CountByAppops
     )
 ```
 
 ---
 
-### VCECloturés (version finale)
+### VCECloturés (version corrigée)
 
 ```dax
 VCECloturés = 
 VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
 VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
 
-// Vérifie si combo Appops+Tribu existe dans MoisPrecedent
+// Vérifie si combo existe en IGNORANT les relations
 VAR ComboExists = 
     IF(
         NOT(ISBLANK(SelectedTribu)),
-        CALCULATE(
-            COUNTROWS('MoisPrecedent'),
-            'MoisPrecedent'[Appops] = SelectedAppops,
-            'MoisPrecedent'[Tribu] = SelectedTribu
+        COUNTROWS(
+            FILTER(
+                ALL('MoisPrecedent'),
+                'MoisPrecedent'[Appops] = SelectedAppops
+                && 'MoisPrecedent'[Tribu] = SelectedTribu
+            )
         ) > 0,
         TRUE
     )
@@ -105,32 +94,64 @@ VAR CountByTribu =
 RETURN
     SWITCH(
         TRUE(),
-        // Si Tribu sélectionnée mais combo n'existe pas → BLANK
         NOT(ISBLANK(SelectedTribu)) && NOT(ComboExists), BLANK(),
-        // Si Tribu sélectionnée et existe → Compte par Tribu
         NOT(ISBLANK(SelectedTribu)), CountByTribu,
-        // Sinon → Compte par Appops
         CountByAppops
     )
 ```
 
 ---
 
-## TEST FINAL
+## Différence clé
 
-**Remplace tes mesures par ces versions finales.**
-
-**Teste maintenant avec une combo inexistante :**
-
-### Test 4 : Combo inexistante
+**Avant (ne marchait pas) :**
+```dax
+VAR ComboExists = 
+    CALCULATE(
+        COUNTROWS('MoisActuel'),
+        'MoisActuel'[Appops] = SelectedAppops,
+        'MoisActuel'[Tribu] = SelectedTribu
+    ) > 0
 ```
-Sélectionne AppOps_A > Tribu_XXX
-(où Tribu_XXX n'existe PAS pour AppOps_A dans tes données)
+→ Utilise CALCULATE qui est influencé par les relations actives ❌
 
+**Après (corrigé) :**
+```dax
+VAR ComboExists = 
+    COUNTROWS(
+        FILTER(
+            ALL('MoisActuel'),  // ← Ignore TOUTES les relations
+            'MoisActuel'[Appops] = SelectedAppops
+            && 'MoisActuel'[Tribu] = SelectedTribu
+        )
+    ) > 0
+```
+→ Utilise FILTER avec ALL = recherche directe dans la table ✅
+
+---
+
+## TESTE CES NOUVELLES VERSIONS
+
+**Remplace tes mesures et refais les tests :**
+
+### Test 1 : AppOps_A (toutes tribus)
+```
+VCEDetectés = ?
+VCECloturés = ?
+```
+
+### Test 2 : AppOps_A > Tribu_Alpha (existe)
+```
+VCEDetectés = ?
+VCECloturés = ?
+```
+
+### Test 3 : AppOps_A > Tribu_XXX (n'existe PAS)
+```
 VCEDetectés = ? (devrait être BLANK)
 VCECloturés = ? (devrait être BLANK)
 ```
 
-**→ Dis-moi le résultat !** 🎯
+**→ Dis-moi les résultats !** 🎯
 
-Si ça affiche BLANK pour les combos inexistantes, **c'est terminé, tout fonctionne parfaitement !** 🎉
+Cette fois ça devrait marcher ! 💪
