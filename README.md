@@ -1,157 +1,90 @@
-Ah ! Je vois le problème ! 🔍
-
-**La vérification `ComboExists` ne fonctionne pas correctement.**
-
-Le souci : elle essaie de filtrer directement sur `MoisActuel[Appops]` et `MoisActuel[Tribu]` en même temps, mais avec les relations actives/inactives, ça ne marche pas.
+Voici la correction complète ! 👍
 
 ---
 
-## Solution : Vérification SANS utiliser les relations
-
-On va vérifier si la combo existe **en ignorant complètement les relations** :
-
-### VCEDetectés (version corrigée)
-
-```dax
-VCEDetectés = 
-VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
-VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
-
-// Vérifie si combo existe en IGNORANT les relations
-VAR ComboExists = 
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        COUNTROWS(
-            FILTER(
-                ALL('MoisActuel'),
-                'MoisActuel'[Appops] = SelectedAppops
-                && 'MoisActuel'[Tribu] = SelectedTribu
-            )
-        ) > 0,
-        TRUE
-    )
-
-VAR CountByAppops = 
-    CALCULATE(
-        DISTINCTCOUNT('MoisActuel'[OriginalId]),
-        'MoisActuel'[EstDetecté] = "Oui"
-    )
-
-VAR CountByTribu = 
-    CALCULATE(
-        DISTINCTCOUNT('MoisActuel'[OriginalId]),
-        'MoisActuel'[EstDetecté] = "Oui",
-        ALL('MoisActuel'[Appops]),
-        USERELATIONSHIP(appops_secu[Tribu], 'MoisActuel'[Tribu])
-    )
-
-RETURN
-    SWITCH(
-        TRUE(),
-        NOT(ISBLANK(SelectedTribu)) && NOT(ComboExists), BLANK(),
-        NOT(ISBLANK(SelectedTribu)), CountByTribu,
-        CountByAppops
-    )
-```
-
----
-
-### VCECloturés (version corrigée)
+## VCECloturés (version corrigée complète)
 
 ```dax
 VCECloturés = 
 VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
 VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
 
-// Vérifie si combo existe en IGNORANT les relations
-VAR ComboExists = 
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        COUNTROWS(
-            FILTER(
-                ALL('MoisPrecedent'),
-                'MoisPrecedent'[Appops] = SelectedAppops
-                && 'MoisPrecedent'[Tribu] = SelectedTribu
-            )
-        ) > 0,
-        TRUE
-    )
-
 VAR CountByAppops = 
     CALCULATE(
-        DISTINCTCOUNT('MoisPrecedent'[OriginalId]),
-        'MoisPrecedent'[EstClôturé] = "Oui"
+        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
+        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
     )
 
 VAR CountByTribu = 
     CALCULATE(
-        DISTINCTCOUNT('MoisPrecedent'[OriginalId]),
-        'MoisPrecedent'[EstClôturé] = "Oui",
-        ALL('MoisPrecedent'[Appops]),
-        USERELATIONSHIP(appops_secu[Tribu], 'MoisPrecedent'[Tribu])
+        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
+        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
+        'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
+        'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
     )
 
 RETURN
-    SWITCH(
-        TRUE(),
-        NOT(ISBLANK(SelectedTribu)) && NOT(ComboExists), BLANK(),
-        NOT(ISBLANK(SelectedTribu)), CountByTribu,
+    IF(
+        NOT(ISBLANK(SelectedTribu)),
+        CountByTribu,
         CountByAppops
     )
 ```
 
 ---
 
-## Différence clé
+## VCEDetectés (version corrigée complète)
 
-**Avant (ne marchait pas) :**
 ```dax
-VAR ComboExists = 
+VCEDetectés = 
+VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
+VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
+
+VAR CountByAppops = 
     CALCULATE(
-        COUNTROWS('MoisActuel'),
-        'MoisActuel'[Appops] = SelectedAppops,
-        'MoisActuel'[Tribu] = SelectedTribu
-    ) > 0
-```
-→ Utilise CALCULATE qui est influencé par les relations actives ❌
+        DISTINCTCOUNT('SourceMoisActuel-Appops360'[OriginalId]),
+        'SourceMoisActuel-Appops360'[EstDetecté] = "Oui"
+    )
 
-**Après (corrigé) :**
-```dax
-VAR ComboExists = 
-    COUNTROWS(
-        FILTER(
-            ALL('MoisActuel'),  // ← Ignore TOUTES les relations
-            'MoisActuel'[Appops] = SelectedAppops
-            && 'MoisActuel'[Tribu] = SelectedTribu
-        )
-    ) > 0
+VAR CountByTribu = 
+    CALCULATE(
+        DISTINCTCOUNT('SourceMoisActuel-Appops360'[OriginalId]),
+        'SourceMoisActuel-Appops360'[EstDetecté] = "Oui",
+        'SourceMoisActuel-Appops360'[Appops] = SelectedAppops,
+        'SourceMoisActuel-Appops360'[Tribu] = SelectedTribu
+    )
+
+RETURN
+    IF(
+        NOT(ISBLANK(SelectedTribu)),
+        CountByTribu,
+        CountByAppops
+    )
 ```
-→ Utilise FILTER avec ALL = recherche directe dans la table ✅
 
 ---
 
-## TESTE CES NOUVELLES VERSIONS
+## Ce qui a changé
 
-**Remplace tes mesures et refais les tests :**
-
-### Test 1 : AppOps_A (toutes tribus)
-```
-VCEDetectés = ?
-VCECloturés = ?
+**Avant (dans CountByTribu) :**
+```dax
+ALL('SourceMoisM-1-Appops360'[Appops]),
+USERELATIONSHIP(appops_secu[Tribu], 'SourceMoisM-1-Appops360'[Tribu])
 ```
 
-### Test 2 : AppOps_A > Tribu_Alpha (existe)
-```
-VCEDetectés = ?
-VCECloturés = ?
-```
-
-### Test 3 : AppOps_A > Tribu_XXX (n'existe PAS)
-```
-VCEDetectés = ? (devrait être BLANK)
-VCECloturés = ? (devrait être BLANK)
+**Après (dans CountByTribu) :**
+```dax
+'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
+'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
 ```
 
-**→ Dis-moi les résultats !** 🎯
+**Et ajout au début :**
+```dax
+VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
+```
 
-Cette fois ça devrait marcher ! 💪
+---
+
+**Copie-colle ces deux mesures et teste !** 🎯
+
+Normalement AppOps_D > Tribu_D devrait maintenant donner **8** et non 283 ! 💪
