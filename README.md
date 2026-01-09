@@ -1,22 +1,45 @@
-🎉 **PARFAIT ! Tout fonctionne !**
+🎉 **PARFAIT ! Tout fonctionne correctement !** 🎉
 
-**Récap des tests :**
-- ✅ Données éclatées : 24834 lignes
-- ✅ EstDetecté : 14181 détectés
-- ✅ Relation Appops (ACTIVE) : ✅ Fonctionne
-- ✅ USERELATIONSHIP Tribu (INACTIVE) : ✅ Fonctionne
+**Analyse des résultats :**
 
-**Tout est en place ! On peut maintenant créer les mesures finales.** 🚀
+```
+Sans filtre         → 13097 / 13369  ✅ Totaux globaux
+Filtre AppOps_A     → 43 / 134       ✅ Diminue (une seule Appops)
+Filtre Tribu_Alpha  → 17 / 106       ✅ Diminue encore (une seule Tribu)
+```
+
+**La logique fonctionne !** Les filtres Appops ET Tribu sont bien pris en compte ! 💪
 
 ---
 
-## MESURES FINALES
+## DERNIÈRE ÉTAPE : Gérer les combos inexistantes
 
-### VCEDetectés
+**Maintenant, il faut gérer le cas où tu sélectionnes une Tribu qui n'existe pas pour cette Appops.**
+
+**Exemple :** AppOps_A > Tribu_Gamma (si Tribu_Gamma n'existe pas pour AppOps_A)
+
+---
+
+## MESURES FINALES avec vérification combo
+
+### VCEDetectés (version finale)
 
 ```dax
 VCEDetectés = 
+VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
 VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
+
+// Vérifie si combo Appops+Tribu existe dans MoisActuel
+VAR ComboExists = 
+    IF(
+        NOT(ISBLANK(SelectedTribu)),
+        CALCULATE(
+            COUNTROWS('MoisActuel'),
+            'MoisActuel'[Appops] = SelectedAppops,
+            'MoisActuel'[Tribu] = SelectedTribu
+        ) > 0,
+        TRUE
+    )
 
 VAR CountByAppops = 
     CALCULATE(
@@ -33,20 +56,37 @@ VAR CountByTribu =
     )
 
 RETURN
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        CountByTribu,
+    SWITCH(
+        TRUE(),
+        // Si Tribu sélectionnée mais combo n'existe pas → BLANK
+        NOT(ISBLANK(SelectedTribu)) && NOT(ComboExists), BLANK(),
+        // Si Tribu sélectionnée et existe → Compte par Tribu
+        NOT(ISBLANK(SelectedTribu)), CountByTribu,
+        // Sinon → Compte par Appops
         CountByAppops
     )
 ```
 
 ---
 
-### VCECloturés
+### VCECloturés (version finale)
 
 ```dax
 VCECloturés = 
+VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
 VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
+
+// Vérifie si combo Appops+Tribu existe dans MoisPrecedent
+VAR ComboExists = 
+    IF(
+        NOT(ISBLANK(SelectedTribu)),
+        CALCULATE(
+            COUNTROWS('MoisPrecedent'),
+            'MoisPrecedent'[Appops] = SelectedAppops,
+            'MoisPrecedent'[Tribu] = SelectedTribu
+        ) > 0,
+        TRUE
+    )
 
 VAR CountByAppops = 
     CALCULATE(
@@ -63,37 +103,34 @@ VAR CountByTribu =
     )
 
 RETURN
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        CountByTribu,
+    SWITCH(
+        TRUE(),
+        // Si Tribu sélectionnée mais combo n'existe pas → BLANK
+        NOT(ISBLANK(SelectedTribu)) && NOT(ComboExists), BLANK(),
+        // Si Tribu sélectionnée et existe → Compte par Tribu
+        NOT(ISBLANK(SelectedTribu)), CountByTribu,
+        // Sinon → Compte par Appops
         CountByAppops
     )
 ```
 
 ---
 
-## TESTE MAINTENANT
+## TEST FINAL
 
-**Créé ces 2 mesures et teste :**
+**Remplace tes mesures par ces versions finales.**
 
-### Test 1 : Sans filtre
-```
-VCEDetectés = ?
-VCECloturés = ?
-```
+**Teste maintenant avec une combo inexistante :**
 
-### Test 2 : Filtre AppOps_A
+### Test 4 : Combo inexistante
 ```
-VCEDetectés = ?
-VCECloturés = ?
-```
+Sélectionne AppOps_A > Tribu_XXX
+(où Tribu_XXX n'existe PAS pour AppOps_A dans tes données)
 
-### Test 3 : Filtre AppOps_A > Tribu_Alpha
-```
-VCEDetectés = ?
-VCECloturés = ?
+VCEDetectés = ? (devrait être BLANK)
+VCECloturés = ? (devrait être BLANK)
 ```
 
-**→ Dis-moi les résultats de ces 3 tests !** 🎯
+**→ Dis-moi le résultat !** 🎯
 
-Si ça marche, on ajoutera ensuite la vérification pour les combos inexistantes (Tribu_Gamma). Pour l'instant, testons la base ! 💪
+Si ça affiche BLANK pour les combos inexistantes, **c'est terminé, tout fonctionne parfaitement !** 🎉
