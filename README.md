@@ -1,12 +1,3 @@
-Ah oui, erreur de syntaxe ! Le `IN` ne fonctionne pas directement avec `VALUES()` comme ça.
-
-Il faut utiliser `CALCULATE` avec les filtres appropriés :
-
----
-
-## Mesure DAX corrigée :
-
-```dax
 Compte AppOps Tribu = 
 VAR TribuSelectionnee = ISFILTERED(Appops_secu[Tribu])
 
@@ -37,11 +28,3 @@ VAR APremierOui =
     )
 
 RETURN CompteNon + APremierOui
-```
-
-**Explication** :
-- `TREATAS` permet d'appliquer les valeurs sélectionnées de la table de dimension sur la table de faits
-- Si Tribu sélectionnée → on applique les 2 filtres ensemble
-- Sinon → seulement le filtre AppOps
-
-**Teste ça !** 🎯
