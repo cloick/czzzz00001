@@ -1,192 +1,47 @@
-Parfait ! Voici **5 solutions complètement différentes** pour VCECloturés. On teste et tu me dis laquelle marche ! 🎯
+Ah oui, erreur de syntaxe ! Le `IN` ne fonctionne pas directement avec `VALUES()` comme ça.
+
+Il faut utiliser `CALCULATE` avec les filtres appropriés :
 
 ---
 
-## SOLUTION 1 : CALCULATETABLE avec double filtre
+## Mesure DAX corrigée :
 
 ```dax
-VCECloturés_V1 = 
-VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
-VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
+Compte AppOps Tribu = 
+VAR TribuSelectionnee = ISFILTERED(Appops_secu[Tribu])
 
-VAR CountByAppops = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
-        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
-    )
-
-VAR CountByTribu = 
-    DISTINCTCOUNT(
+VAR TableFiltree = 
+    IF(
+        TribuSelectionnee,
+        // Si Tribu sélectionnée : filtrer sur AppOps ET Tribu
         CALCULATETABLE(
-            VALUES('SourceMoisM-1-Appops360'[OriginalId]),
-            'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
-            'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
-            'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
+            Feuil1,
+            TREATAS(VALUES(Appops_secu[Appops]), Feuil1[AppOps]),
+            TREATAS(VALUES(Appops_secu[Tribu]), Feuil1[Tribu])
+        ),
+        // Si seulement AppOps : filtrer seulement sur AppOps
+        CALCULATETABLE(
+            Feuil1,
+            TREATAS(VALUES(Appops_secu[Appops]), Feuil1[AppOps])
         )
     )
 
-RETURN
+VAR CompteNon = 
+    COUNTROWS(FILTER(TableFiltree, Feuil1[Discolation] = "Non"))
+
+VAR APremierOui = 
     IF(
-        NOT(ISBLANK(SelectedTribu)),
-        CountByTribu,
-        CountByAppops
+        COUNTROWS(FILTER(TableFiltree, Feuil1[Discolation] = "Oui")) > 0,
+        1,
+        0
     )
+
+RETURN CompteNon + APremierOui
 ```
 
----
+**Explication** :
+- `TREATAS` permet d'appliquer les valeurs sélectionnées de la table de dimension sur la table de faits
+- Si Tribu sélectionnée → on applique les 2 filtres ensemble
+- Sinon → seulement le filtre AppOps
 
-## SOLUTION 2 : COUNTX + FILTER
-
-```dax
-VCECloturés_V2 = 
-VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
-VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
-
-VAR CountByAppops = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
-        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
-    )
-
-VAR CountByTribu = 
-    COUNTX(
-        VALUES('SourceMoisM-1-Appops360'[OriginalId]),
-        IF(
-            CALCULATE(
-                COUNTROWS('SourceMoisM-1-Appops360'),
-                'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
-                'SourceMoisM-1-Appops360'[Appops] = SelectedAppops,
-                'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
-            ) > 0,
-            1,
-            BLANK()
-        )
-    )
-
-RETURN
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        CountByTribu,
-        CountByAppops
-    )
-```
-
----
-
-## SOLUTION 3 : ALL + double FILTER
-
-```dax
-VCECloturés_V3 = 
-VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
-VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
-
-VAR CountByAppops = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
-        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
-    )
-
-VAR CountByTribu = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
-        FILTER(
-            ALL('SourceMoisM-1-Appops360'),
-            'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
-            && 'SourceMoisM-1-Appops360'[Appops] = SelectedAppops
-            && 'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
-        )
-    )
-
-RETURN
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        CountByTribu,
-        CountByAppops
-    )
-```
-
----
-
-## SOLUTION 4 : KEEPFILTERS pour préserver contexte
-
-```dax
-VCECloturés_V4 = 
-VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
-VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
-
-VAR CountByAppops = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
-        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
-    )
-
-VAR CountByTribu = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
-        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui",
-        KEEPFILTERS('SourceMoisM-1-Appops360'[Appops] = SelectedAppops),
-        KEEPFILTERS('SourceMoisM-1-Appops360'[Tribu] = SelectedTribu)
-    )
-
-RETURN
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        CountByTribu,
-        CountByAppops
-    )
-```
-
----
-
-## SOLUTION 5 : ADDCOLUMNS + COUNTROWS (la plus simple)
-
-```dax
-VCECloturés_V5 = 
-VAR SelectedAppops = SELECTEDVALUE(appops_secu[Appops])
-VAR SelectedTribu = SELECTEDVALUE(appops_secu[Tribu])
-
-VAR CountByAppops = 
-    CALCULATE(
-        DISTINCTCOUNT('SourceMoisM-1-Appops360'[OriginalId]),
-        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
-    )
-
-VAR TableFiltrée = 
-    FILTER(
-        'SourceMoisM-1-Appops360',
-        'SourceMoisM-1-Appops360'[EstClôturé] = "Oui"
-        && 'SourceMoisM-1-Appops360'[Appops] = SelectedAppops
-        && 'SourceMoisM-1-Appops360'[Tribu] = SelectedTribu
-    )
-
-VAR CountByTribu = 
-    COUNTROWS(
-        DISTINCT(
-            SELECTCOLUMNS(
-                TableFiltrée,
-                "ID", 'SourceMoisM-1-Appops360'[OriginalId]
-            )
-        )
-    )
-
-RETURN
-    IF(
-        NOT(ISBLANK(SelectedTribu)),
-        CountByTribu,
-        CountByAppops
-    )
-```
-
----
-
-## TEST
-
-**Créé les 5 mesures (V1, V2, V3, V4, V5)**
-
-**Affiche-les dans 5 cartes côte à côte**
-
-**Sélectionne AppOps_D > Tribu_D**
-
-**→ Dis-moi laquelle(s) affiche(nt) 8 !** 🎯
-
-Une fois qu'on sait laquelle marche, on l'applique aussi à VCEDetectés ! 💪
+**Teste ça !** 🎯
