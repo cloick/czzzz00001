@@ -1,305 +1,151 @@
-# -*- coding: utf-8 -*-
-import dataiku
-import pandas as pd
-import numpy as np
-from collections import Counter
-import re
-
-print("🔍 ANALYSE DÉTAILLÉE DES CLUSTERS POUR VALIDATION MÉTIER")
-print("="*70)
-
-# Read recipe inputs
-dataset = dataiku.Dataset("incident_with_clusters_intensive")
-df = dataset.get_dataframe()
-
-print(f"Dataset chargé : {len(df)} lignes")
-print(f"Clusters analysés : {df['cluster'].nunique() - (1 if -1 in df['cluster'].values else 0)}")
-
-# Statistiques générales
-clusters = df['cluster'].unique()
-n_clusters = len([c for c in clusters if c != -1])
-n_noise = (df['cluster'] == -1).sum()
-
-print(f"Points de bruit : {n_noise} ({n_noise/len(df)*100:.1f}%)")
-
-# Analyse complète par cluster
-print(f"\n📊 ANALYSE DÉTAILLÉE PAR CLUSTER")
-print("="*70)
-
-cluster_analysis = []
-
-for cluster in sorted([c for c in clusters if c != -1]):
-    cluster_data = df[df['cluster'] == cluster]
+graph TB
+    subgraph External["🌐 SERVICES EXTERNES"]
+        Confluence[Confluence API<br/>REST v2<br/>Rate: 100 req/min]
+        OpenAI[OpenAI API<br/>text-embedding-ada-002<br/>gpt-4-turbo]
+        Cohere[Cohere API<br/>rerank-english-v3.0]
+    end
     
-    print(f"\n🎯 CLUSTER {cluster} - {len(cluster_data)} tickets ({len(cluster_data)/len(df)*100:.1f}%)")
-    print("-" * 50)
-    
-    analysis = {
-        'cluster_id': cluster,
-        'n_tickets': len(cluster_data),
-        'pourcentage': len(cluster_data)/len(df)*100,
-        'n_fiables': 0,
-        'cause_dominante': 'À déterminer',
-        'causes_repartition': {},
-        'groupe_dominant': '',
-        'service_dominant': '',
-        'cat1_dominant': '',
-        'cat2_dominant': '',
-        'priorite_dominante': '',
-        'mots_cles_frequents': [],
-        'exemples_tickets': [],
-        'coherence_score': 0
-    }
-    
-    # 1. ANALYSE DES TICKETS FIABLES
-    if 'est_fiable' in cluster_data.columns:
-        fiables = cluster_data[cluster_data['est_fiable']]
-        analysis['n_fiables'] = len(fiables)
+    subgraph DataikuDSS["🔷 DATAIKU DSS 12.x"]
         
-        print(f"📋 Tickets fiables : {len(fiables)}/{len(cluster_data)} ({len(fiables)/len(cluster_data)*100:.1f}%)")
+        subgraph WebApps["📱 WEB APPS Dash/Bokeh"]
+            WA_Chat[Web App: Chat RAG<br/>---<br/>Framework: Dash<br/>Components: Input, Chat, Feedback<br/>Backend: Python Function]
+            WA_Curation[Web App: Qualité & Curation<br/>---<br/>Framework: Dash + DataTables<br/>Tabs: Signalés, Problèmes, Suggestions<br/>Actions: Supprimer, Modifier, Étiqueter]
+            WA_Monitor[Web App: Monitoring<br/>---<br/>Framework: Dash + Plotly<br/>Charts: Precision, Recall, Latency<br/>Refresh: Auto 5 min]
+        end
         
-        if len(fiables) > 0 and 'cause' in fiables.columns:
-            # Distribution des causes
-            cause_counts = fiables['cause'].value_counts()
-            analysis['causes_repartition'] = cause_counts.to_dict()
+        subgraph Scenarios["⏰ SCENARIOS Orchestration"]
+            SC_Nightly[Scenario: Nightly Analysis<br/>---<br/>Trigger: Time-based 2:00 AM daily<br/>Duration: 1-2h<br/>Cost: ~$30/nuit<br/>Steps: 7 recipes séquentiels<br/>Retry: 3 attempts<br/>Notification: Email on error]
+            SC_Weekly[Scenario: Weekly Suggestions<br/>---<br/>Trigger: Time-based Sunday 11 PM<br/>Duration: 2-3h<br/>Cost: ~$100<br/>Steps: 4 recipes LLM intensifs]
+            SC_Metrics[Scenario: Metrics Update<br/>---<br/>Trigger: Time-based every 5 min<br/>Duration: 10s<br/>Cost: $0<br/>Step: 1 recipe aggregation]
+        end
+        
+        subgraph Recipes["🔧 RECIPES Python 3.11"]
+            R_RAG[Recipe: RAG Query Pipeline<br/>---<br/>Type: Python<br/>Input: User query<br/>Steps:<br/>1. Query preprocessing<br/>2. OpenAI embedding<br/>3. pgvector search<br/>4. Cohere reranking<br/>5. Context building<br/>6. GPT-4 generation<br/>7. Log to query_logs<br/>Output: Response + Sources<br/>Latency: ~2s]
             
-            if len(cause_counts) > 0:
-                analysis['cause_dominante'] = cause_counts.index[0]
-                confidence = cause_counts.iloc[0] / len(fiables)
-                
-                print(f"🎯 Cause dominante : {analysis['cause_dominante']} ({confidence:.1%} des tickets fiables)")
-                
-                # Afficher toutes les causes présentes
-                print(f"📈 Répartition des causes :")
-                for cause, count in cause_counts.items():
-                    pct = count / len(fiables) * 100
-                    print(f"   • {cause}: {count} tickets ({pct:.1f}%)")
-    
-    # 2. ANALYSE DES VARIABLES CATÉGORIELLES
-    print(f"\n🏢 Variables dominantes :")
-    
-    cat_vars = {
-        'Groupe affecté': 'groupe_dominant',
-        'Service métier': 'service_dominant', 
-        'Cat1': 'cat1_dominant',
-        'Cat2': 'cat2_dominant',
-        'Priorité': 'priorite_dominante'
-    }
-    
-    for col, key in cat_vars.items():
-        if col in cluster_data.columns:
-            top_values = cluster_data[col].value_counts().head(3)
-            if len(top_values) > 0:
-                analysis[key] = top_values.index[0]
-                print(f"   • {col}: {top_values.index[0]} ({top_values.iloc[0]} tickets - {top_values.iloc[0]/len(cluster_data)*100:.1f}%)")
-                
-                # Afficher top 3 si pertinent
-                if len(top_values) > 1:
-                    others = [f"{val} ({count})" for val, count in top_values.iloc[1:3].items()]
-                    print(f"     Autres: {', '.join(others)}")
-    
-    # 3. ANALYSE TEXTUELLE DES NOTES DE RÉSOLUTION
-    if 'Notes de résolution' in cluster_data.columns:
-        print(f"\n📝 Analyse textuelle :")
+            R_Sync[Recipe: Confluence Sync<br/>---<br/>Type: Python<br/>API: Confluence REST v2<br/>Actions:<br/>• Fetch all pages<br/>• Detect new/modified/deleted<br/>• Update documents table<br/>Duration: ~30 min]
+            
+            R_Embed[Recipe: Generate Embeddings<br/>---<br/>Type: Python<br/>API: OpenAI ada-002<br/>Batch size: 100 docs<br/>Input: documents sans embeddings<br/>Output: document_embeddings<br/>Duration: ~1h<br/>Cost: ~$10]
+            
+            R_Detect[Recipe: Detect Issues<br/>---<br/>Type: Python<br/>Analyses:<br/>• Obsolete: dates + regex tech<br/>• Orphans: graphe liens<br/>• Duplicates: cosine > 0.85<br/>• Contradictions: GPT-4<br/>• Gaps: NER + keywords<br/>Duration: ~1h<br/>Cost: ~$20]
+            
+            R_Suggest[Recipe: Generate Suggestions<br/>---<br/>Type: Python<br/>API: GPT-4 pour génération<br/>Génère:<br/>• Fusion proposals<br/>• Creation proposals<br/>• Tag suggestions<br/>Duration: ~2h<br/>Cost: ~$100]
+            
+            R_Metrics[Recipe: Aggregate Metrics<br/>---<br/>Type: Python<br/>Input: query_logs last 5 min<br/>Compute:<br/>• P50, P95, P99 latency<br/>• Precision, Recall<br/>• Faithfulness<br/>• Cost per query<br/>Output: monitoring_metrics]
+        end
         
-        # Nettoyer et extraire les mots-clés
-        all_text = ' '.join(cluster_data['Notes de résolution'].fillna('').astype(str))
+        subgraph Datasets["💾 DATASETS PostgreSQL"]
+            DS_Docs[(documents<br/>---<br/>Table: documents<br/>Rows: ~1,000<br/>Columns: id, title, content,<br/>created_at, updated_at)]
+            
+            DS_Embeddings[(document_embeddings<br/>---<br/>Table: document_embeddings<br/>Type: vector1536<br/>Index: HNSW<br/>Rows: ~5,000 chunks)]
+            
+            DS_Logs[(query_logs<br/>---<br/>Table: query_logs<br/>Rows: ~10K/jour<br/>Retention: 90 jours)]
+            
+            DS_Reports[(user_reports<br/>---<br/>Table: user_reports<br/>Status: pending/resolved)]
+            
+            DS_Issues[(Tables Issues<br/>---<br/>• obsolete_pages<br/>• orphan_pages<br/>• duplicate_groups<br/>• contradictions<br/>• missing_documentation)]
+            
+            DS_Suggestions[(Tables Suggestions<br/>---<br/>• fusion_proposals<br/>• creation_proposals<br/>• tag_suggestions)]
+            
+            DS_Metrics[(monitoring_metrics<br/>---<br/>Table: monitoring_metrics<br/>Granularité: 5 min<br/>Retention: 6 mois)]
+        end
         
-        # Nettoyer le texte
-        text_clean = re.sub(r'[^\w\s]', ' ', all_text.lower())
-        text_clean = re.sub(r'\s+', ' ', text_clean)
+        subgraph Connections["🔌 CONNECTIONS"]
+            CONN_PG[PostgreSQL Connection<br/>---<br/>Host: your-host:5432<br/>Database: rag_wiki_db<br/>User: dataiku_user<br/>Extensions: pgvector<br/>SSL: Enabled]
+            
+            CONN_APIs[API Connections<br/>---<br/>• OpenAI: HTTP Preset<br/>• Cohere: HTTP Preset<br/>• Confluence: HTTP Preset<br/>Auth: API Keys stored<br/>in Dataiku secrets]
+        end
         
-        # Mots vides à ignorer
-        stop_words = {
-            'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'et', 'ou', 'mais', 'pour', 'par', 'avec', 'sur', 'dans', 'en', 'à', 'il', 'elle', 'ce', 'cette', 'qui', 'que', 'dont', 'où', 'est', 'sont', 'était', 'étaient', 'sera', 'seront', 'avoir', 'être', 'faire', 'dire', 'aller', 'voir', 'savoir', 'pouvoir', 'falloir', 'vouloir', 'venir', 'prendre', 'donner', 'mettre', 'tenir', 'partir', 'porter', 'montrer', 'demander', 'passer', 'suivre', 'sortir', 'entrer', 'rester', 'tomber', 'arriver', 'répondre', 'ouvrir', 'fermer', 'commencer', 'finir', 'continuer', 'arrêter', 'changer', 'utiliser', 'travailler', 'jouer', 'gagner', 'perdre', 'acheter', 'vendre', 'payer', 'coûter', 'valoir', 'compter', 'mesurer', 'peser', 'couper', 'casser', 'réparer', 'construire', 'détruire', 'créer', 'produire', 'fabriquer', 'publier', 'écrire', 'lire', 'écouter', 'regarder', 'chercher', 'trouver', 'découvrir', 'apprendre', 'enseigner', 'expliquer', 'comprendre', 'connaître', 'reconnaître', 'se', 'me', 'te', 'nous', 'vous', 'lui', 'leur', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses', 'notre', 'nos', 'votre', 'vos', 'leur', 'leurs', 'ticket', 'incident', 'problème', 'issue', 'erreur', 'bug', 'souci', 'pb'
-        }
-        
-        # Extraire mots significatifs
-        words = [word for word in text_clean.split() if len(word) > 3 and word not in stop_words]
-        word_freq = Counter(words)
-        
-        # Top 10 mots-clés
-        top_words = word_freq.most_common(10)
-        analysis['mots_cles_frequents'] = [f"{word} ({count})" for word, count in top_words]
-        
-        print(f"   🔑 Mots-clés fréquents :")
-        for word, count in top_words[:8]:  # Limiter l'affichage
-            print(f"      • {word}: {count} occurrences")
+        subgraph CodeEnv["🐍 CODE ENVIRONMENT"]
+            PythonEnv[Python 3.11 Managed Env<br/>---<br/>Packages:<br/>• openai==1.12.0<br/>• cohere==4.47<br/>• pgvector==0.2.4<br/>• psycopg2-binary==2.9.9<br/>• sqlalchemy==2.0.25<br/>• ragas==0.1.4<br/>• pandas==2.2.0<br/>• sentence-transformers==2.3.1]
+        end
+    end
     
-    # 4. TOUS LES TICKETS DU CLUSTER
-    print(f"\n📄 Tous les tickets du cluster :")
+    subgraph Database["💾 PostgreSQL 16 + pgvector"]
+        PG[(PostgreSQL Database<br/>---<br/>Version: 16+<br/>Extension: pgvector 0.5.x<br/>Size: ~250 MB + 50 MB/jour<br/>Connections: Pool max 20)]
+    end
     
-    # TOUS les numéros de tickets du cluster
-    if 'N° INC' in cluster_data.columns:
-        tous_tickets = cluster_data['N° INC'].tolist()
-        analysis['exemples_tickets'] = tous_tickets
-        print(f"   📋 {len(tous_tickets)} tickets : {', '.join(map(str, tous_tickets[:10]))}")
-        if len(tous_tickets) > 10:
-            print(f"   📋 ... et {len(tous_tickets)-10} autres tickets")
-    else:
-        # Si pas de colonne N° INC, utiliser les index
-        tous_tickets = cluster_data.index.tolist()
-        analysis['exemples_tickets'] = tous_tickets
-        print(f"   📋 {len(tous_tickets)} tickets (index) : {', '.join(map(str, tous_tickets[:10]))}")
+    subgraph Users["👥 UTILISATEURS"]
+        EndUsers[Utilisateurs Finaux<br/>---<br/>Accès: Web Apps<br/>Auth: Dataiku SSO]
+        Admins[Administrateurs<br/>---<br/>Accès: Dataiku Console<br/>+ Web Apps]
+    end
     
-    # Échantillon représentatif pour affichage détaillé
-    exemples_display = []
-    if 'est_fiable' in cluster_data.columns:
-        # D'abord les tickets fiables
-        fiables_sample = cluster_data[cluster_data['est_fiable']].head(3)
-        exemples_display.extend(fiables_sample.index.tolist())
-        
-        # Puis des tickets non fiables
-        non_fiables = cluster_data[~cluster_data['est_fiable']]
-        if len(non_fiables) > 0:
-            non_fiables_sample = non_fiables.sample(min(2, len(non_fiables)), random_state=42)
-            exemples_display.extend(non_fiables_sample.index.tolist())
-    else:
-        # Échantillon aléatoire
-        sample_size = min(5, len(cluster_data))
-        sample_tickets = cluster_data.sample(sample_size, random_state=42)
-        exemples_display.extend(sample_tickets.index.tolist())
+    %% Flux Utilisateurs
+    EndUsers -->|HTTPS| WA_Chat
+    EndUsers -->|HTTPS| WA_Curation
+    Admins -->|HTTPS| WA_Monitor
     
-    print(f"\n📄 Échantillon détaillé (5 premiers) :")
+    %% Web Apps -> Recipes
+    WA_Chat -->|trigger| R_RAG
+    WA_Chat -->|feedback| DS_Reports
+    WA_Curation -->|display| DS_Reports
+    WA_Curation -->|display| DS_Issues
+    WA_Curation -->|display| DS_Suggestions
+    WA_Monitor -->|display| DS_Metrics
     
-    for i, idx in enumerate(exemples_display[:5], 1):
-        ticket = df.loc[idx]
-        fiable_str = " (FIABLE)" if ticket.get('est_fiable', False) else ""
-        cause_str = f" | Cause: {ticket.get('cause', 'N/A')}" if 'cause' in ticket else ""
-        
-        print(f"   {i}. Ticket {ticket.get('N° INC', idx)}{fiable_str}{cause_str}")
-        print(f"      Groupe: {ticket.get('Groupe affecté', 'N/A')} | Service: {ticket.get('Service métier', 'N/A')}")
-        
-        if 'Notes de résolution' in ticket:
-            note = str(ticket['Notes de résolution'])[:150]
-            print(f"      Note: {note}{'...' if len(str(ticket['Notes de résolution'])) > 150 else ''}")
-        print()
+    %% Scenarios -> Recipes
+    SC_Nightly -->|step 1| R_Sync
+    SC_Nightly -->|step 2| R_Embed
+    SC_Nightly -->|step 3-7| R_Detect
     
-    # 5. SCORE DE COHÉRENCE DU CLUSTER (explication détaillée)
-    coherence_factors = []
-    coherence_details = []
+    SC_Weekly -->|step 1-4| R_Suggest
     
-    # Cohérence des causes (si tickets fiables)
-    if analysis['n_fiables'] > 0 and analysis['causes_repartition']:
-        max_cause_pct = max(analysis['causes_repartition'].values()) / analysis['n_fiables']
-        coherence_factors.append(max_cause_pct)
-        coherence_details.append(f"Cohérence causes: {max_cause_pct:.2f}")
+    SC_Metrics -->|step 1| R_Metrics
     
-    # Cohérence du groupe affecté
-    if analysis['groupe_dominant']:
-        groupe_pct = cluster_data[cluster_data['Groupe affecté'] == analysis['groupe_dominant']].shape[0] / len(cluster_data)
-        coherence_factors.append(groupe_pct)
-        coherence_details.append(f"Cohérence groupe: {groupe_pct:.2f}")
+    %% Recipes -> Datasets
+    R_RAG -->|write| DS_Logs
+    R_Sync -->|write| DS_Docs
+    R_Embed -->|write| DS_Embeddings
+    R_Detect -->|write| DS_Issues
+    R_Suggest -->|write| DS_Suggestions
+    R_Metrics -->|read| DS_Logs
+    R_Metrics -->|write| DS_Metrics
     
-    # Cohérence du service
-    if analysis['service_dominant']:
-        service_pct = cluster_data[cluster_data['Service métier'] == analysis['service_dominant']].shape[0] / len(cluster_data)
-        coherence_factors.append(service_pct)
-        coherence_details.append(f"Cohérence service: {service_pct:.2f}")
+    %% Recipes -> External APIs
+    R_RAG -->|embed + generate| OpenAI
+    R_RAG -->|rerank| Cohere
+    R_RAG -->|search| DS_Embeddings
+    R_Sync -->|fetch pages| Confluence
+    R_Embed -->|embed| OpenAI
+    R_Detect -->|detect contradictions| OpenAI
+    R_Suggest -->|generate content| OpenAI
     
-    if coherence_factors:
-        analysis['coherence_score'] = np.mean(coherence_factors)
-        
-        print(f"📊 Score de cohérence : {analysis['coherence_score']:.2f}")
-        print(f"   📝 Détail : {' | '.join(coherence_details)}")
-        print(f"   📖 Signification :")
-        print(f"      • >0.70 = Cluster très cohérent (tickets très similaires)")
-        print(f"      • 0.50-0.70 = Cluster moyennement cohérent") 
-        print(f"      • <0.50 = Cluster peu cohérent (tickets disparates)")
-        
-        if analysis['coherence_score'] > 0.7:
-            print(f"   ✅ Cluster très cohérent - Validation recommandée")
-        elif analysis['coherence_score'] > 0.5:
-            print(f"   🟡 Cluster moyennement cohérent - Validation conseillée")
-        else:
-            print(f"   ⚠️  Cluster peu cohérent - Validation OBLIGATOIRE")
+    %% Datasets -> Database
+    DS_Docs -.->|SQL| PG
+    DS_Embeddings -.->|SQL + vector ops| PG
+    DS_Logs -.->|SQL| PG
+    DS_Reports -.->|SQL| PG
+    DS_Issues -.->|SQL| PG
+    DS_Suggestions -.->|SQL| PG
+    DS_Metrics -.->|SQL| PG
     
-    cluster_analysis.append(analysis)
-
-# RÉSUMÉ GLOBAL ET RECOMMANDATIONS
-print(f"\n" + "="*70)
-print(f"📈 RÉSUMÉ GLOBAL DE L'ANALYSE")
-print("="*70)
-
-# DataFrame pour analyse
-df_analysis = pd.DataFrame(cluster_analysis)
-
-# Statistiques globales
-total_fiables = df_analysis['n_fiables'].sum()
-clusters_avec_cause = len(df_analysis[df_analysis['cause_dominante'] != 'À déterminer'])
-clusters_coherents = len(df_analysis[df_analysis['coherence_score'] > 0.7])
-
-print(f"🎯 Couverture des tickets fiables : {total_fiables}/{df['est_fiable'].sum() if 'est_fiable' in df.columns else 'N/A'}")
-print(f"🎯 Clusters avec cause identifiée : {clusters_avec_cause}/{len(df_analysis)} ({clusters_avec_cause/len(df_analysis)*100:.1f}%)")
-print(f"🎯 Clusters cohérents (score > 0.7) : {clusters_coherents}/{len(df_analysis)} ({clusters_coherents/len(df_analysis)*100:.1f}%)")
-
-# Distribution des causes
-if 'est_fiable' in df.columns:
-    print(f"\n📊 MAPPING CLUSTERS → CAUSES :")
+    %% Connections
+    CONN_PG -.->|connect| PG
+    CONN_APIs -.->|authenticate| OpenAI
+    CONN_APIs -.->|authenticate| Cohere
+    CONN_APIs -.->|authenticate| Confluence
     
-    causes_mapping = {}
-    for _, row in df_analysis.iterrows():
-        cause = row['cause_dominante']
-        if cause != 'À déterminer':
-            if cause not in causes_mapping:
-                causes_mapping[cause] = []
-            causes_mapping[cause].append(row['cluster_id'])
+    %% Code Environment
+    PythonEnv -.->|used by| R_RAG
+    PythonEnv -.->|used by| R_Sync
+    PythonEnv -.->|used by| R_Embed
+    PythonEnv -.->|used by| R_Detect
+    PythonEnv -.->|used by| R_Suggest
+    PythonEnv -.->|used by| R_Metrics
     
-    for cause, clusters_list in causes_mapping.items():
-        clusters_str = ', '.join(map(str, sorted(clusters_list)))
-        print(f"   📋 {cause}: Clusters {clusters_str} ({len(clusters_list)} clusters)")
+    %% Styles
+    classDef webapp fill:#667eea,stroke:#5568d3,color:#fff,stroke-width:2px
+    classDef scenario fill:#ed8936,stroke:#dd6b20,color:#fff,stroke-width:2px
+    classDef recipe fill:#48bb78,stroke:#38a169,color:#fff,stroke-width:2px
+    classDef dataset fill:#4299e1,stroke:#3182ce,color:#fff,stroke-width:2px
+    classDef connection fill:#9f7aea,stroke:#805ad5,color:#fff,stroke-width:2px
+    classDef external fill:#f6ad55,stroke:#ed8936,color:#000,stroke-width:2px
+    classDef database fill:#2c5282,stroke:#2a4365,color:#fff,stroke-width:2px
     
-    clusters_a_determiner = df_analysis[df_analysis['cause_dominante'] == 'À déterminer']['cluster_id'].tolist()
-    if clusters_a_determiner:
-        clusters_str = ', '.join(map(str, sorted(clusters_a_determiner)))
-        print(f"   ❓ À déterminer: Clusters {clusters_str} ({len(clusters_a_determiner)} clusters)")
-
-# RECOMMANDATIONS POUR VALIDATION MÉTIER
-print(f"\n💡 RECOMMANDATIONS POUR VALIDATION MÉTIER :")
-print("-" * 40)
-
-# Clusters prioritaires à valider
-clusters_prioritaires = df_analysis.nlargest(5, 'n_tickets')
-print(f"🔍 Clusters prioritaires (plus gros volumes) :")
-for _, cluster in clusters_prioritaires.iterrows():
-    print(f"   • Cluster {cluster['cluster_id']}: {cluster['n_tickets']} tickets - {cluster['cause_dominante']}")
-
-# Clusters incohérents à examiner
-clusters_incoherents = df_analysis[df_analysis['coherence_score'] < 0.5]
-if len(clusters_incoherents) > 0:
-    print(f"\n⚠️  Clusters peu cohérents à examiner :")
-    for _, cluster in clusters_incoherents.iterrows():
-        print(f"   • Cluster {cluster['cluster_id']}: Score {cluster['coherence_score']:.2f} - {cluster['n_tickets']} tickets")
-
-# Clusters sans cause à identifier
-clusters_sans_cause = df_analysis[df_analysis['cause_dominante'] == 'À déterminer']
-if len(clusters_sans_cause) > 0:
-    print(f"\n❓ Clusters sans cause identifiée :")
-    for _, cluster in clusters_sans_cause.iterrows():
-        print(f"   • Cluster {cluster['cluster_id']}: {cluster['n_tickets']} tickets - Mots-clés: {', '.join(cluster['mots_cles_frequents'][:3])}")
-
-# Sauvegarder l'analyse
-print(f"\n💾 SAUVEGARDE DE L'ANALYSE...")
-
-# Dataset détaillé pour validation métier
-df_validation = df.copy()
-df_validation = df_validation.merge(
-    df_analysis[['cluster_id', 'cause_dominante', 'coherence_score']].rename(columns={'cluster_id': 'cluster'}),
-    on='cluster',
-    how='left'
-)
-
-output_validation = dataiku.Dataset("cluster_analysis_validation")
-output_validation.write_with_schema(df_validation)
-
-# Rapport de synthèse
-output_rapport = dataiku.Dataset("cluster_synthesis_report")
-output_rapport.write_with_schema(df_analysis)
-
-print(f"✅ Datasets créés :")
-print(f"   📊 cluster_analysis_validation - Dataset enrichi pour validation")
-print(f"   📋 cluster_synthesis_report - Rapport de synthèse")
-
-print(f"\n" + "="*70)
-print(f"🎉 ANALYSE TERMINÉE ! Prêt pour la validation métier")
-print("="*70)
+    class WA_Chat,WA_Curation,WA_Monitor webapp
+    class SC_Nightly,SC_Weekly,SC_Metrics scenario
+    class R_RAG,R_Sync,R_Embed,R_Detect,R_Suggest,R_Metrics recipe
+    class DS_Docs,DS_Embeddings,DS_Logs,DS_Reports,DS_Issues,DS_Suggestions,DS_Metrics dataset
+    class CONN_PG,CONN_APIs connection
+    class PythonEnv connection
+    class Confluence,OpenAI,Cohere external
+    class PG database
