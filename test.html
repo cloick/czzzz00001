@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qualité et curation - Prototype v4</title>
+    <title>Qualité et curation - Prototype v5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tab-content { display: none; }
@@ -18,7 +18,7 @@
             transition: max-height 0.3s ease;
         }
         .accordion-content.open {
-            max-height: 2000px;
+            max-height: 3500px;
         }
     </style>
 </head>
@@ -204,7 +204,7 @@
 
             <!-- Tab Content: Problèmes -->
             <div id="problemes" class="tab-content p-6">
-                <!-- Exemple d'item problème avec actions complètes -->
+                <!-- Pages obsolètes -->
                 <div class="mb-4">
                     <button class="accordion-trigger w-full flex items-center justify-between p-4 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100" onclick="toggleAccordion('obsoletes')">
                         <span class="font-semibold text-gray-900">Pages obsolètes 🕰️ (45)</span>
@@ -427,6 +427,290 @@
                                     <button class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Ignorer</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RÉORGANISATION - NOUVELLE SECTION -->
+                <div class="mb-6">
+                    <button class="accordion-trigger w-full flex items-center justify-between p-4 bg-purple-50 border-2 border-purple-300 rounded-lg hover:bg-purple-100" onclick="toggleAccordion('reorganisation')">
+                        <span class="font-semibold text-gray-900">Réorganisation 🗂️ (3 sections)</span>
+                        <svg class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="reorganisation" class="accordion-content border-x border-b rounded-b-lg">
+                        <div class="p-4 space-y-6">
+                            
+                            <!-- Section Infrastructure -->
+                            <div class="bg-white border-2 border-purple-200 rounded-lg p-6">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 class="font-semibold text-xl text-gray-900">Section: Infrastructure</h3>
+                                        <p class="text-sm text-gray-600 mt-1">23 pages • Dernière modif: 15/01/2026</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-3xl font-bold text-orange-600 mb-1">62%</div>
+                                        <p class="text-sm text-gray-600">Score conformité</p>
+                                        <span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium mt-2 inline-block">⚠️ Non conforme</span>
+                                    </div>
+                                </div>
+
+                                <!-- Écarts détectés -->
+                                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                                    <p class="font-semibold text-gray-900 mb-3">🚨 Écarts détectés:</p>
+                                    <ul class="space-y-2 text-sm">
+                                        <li class="flex items-start gap-2">
+                                            <span class="text-red-600 font-bold">❌</span>
+                                            <span><strong>Sous-section manquante:</strong> "Troubleshooting"</span>
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <span class="text-orange-600 font-bold">⚠️</span>
+                                            <span><strong>Page mal placée:</strong> "VPN Setup" (actuellement sous "Overview", devrait être sous "Networking → VPN")</span>
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <span class="text-orange-600 font-bold">⚠️</span>
+                                            <span><strong>Profondeur incorrecte:</strong> "AWS Guide" trop superficiel (niveau 1, attendu: niveau 3 sous "Architecture → Cloud")</span>
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <span class="text-orange-600 font-bold">⚠️</span>
+                                            <span><strong>Sous-section vide:</strong> "Storage" existe mais n'a aucune page</span>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <!-- Structure actuelle vs Blueprint vs Proposée -->
+                                <div class="grid grid-cols-3 gap-4 mb-4">
+                                    <!-- Structure actuelle -->
+                                    <div>
+                                        <div class="bg-red-100 px-3 py-2 rounded-t border-2 border-red-300 border-b-0">
+                                            <p class="font-semibold text-red-800 text-sm">❌ Structure actuelle</p>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-b border-2 border-red-300 border-t-0 text-xs" style="font-family: monospace; line-height: 1.8;">
+                                            <div>📁 Infrastructure</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Overview</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 VPN Setup <span class="text-red-600">⚠️</span></div>
+                                            <div class="ml-3">├─ 📁 Architecture</div>
+                                            <div class="ml-6 text-gray-600">└─ 📄 On-premise</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 AWS Guide <span class="text-red-600">⚠️</span></div>
+                                            <div class="ml-3">├─ 📁 Networking</div>
+                                            <div class="ml-6 text-gray-600">└─ 📄 Load Balancers</div>
+                                            <div class="ml-3 text-red-600">├─ 📁 Storage <span class="text-red-600">(vide)</span></div>
+                                            <div class="ml-3 text-gray-600">└─ 📄 Monitoring Config</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Blueprint -->
+                                    <div>
+                                        <div class="bg-blue-100 px-3 py-2 rounded-t border-2 border-blue-300 border-b-0">
+                                            <p class="font-semibold text-blue-800 text-sm">📐 Blueprint attendu</p>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-b border-2 border-blue-300 border-t-0 text-xs" style="font-family: monospace; line-height: 1.8;">
+                                            <div>📁 Infrastructure</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Overview</div>
+                                            <div class="ml-3">├─ 📁 Architecture</div>
+                                            <div class="ml-6">│&nbsp;&nbsp;├─ ☁️ Cloud</div>
+                                            <div class="ml-6">│&nbsp;&nbsp;└─ 🏢 On-premise</div>
+                                            <div class="ml-3">├─ 📁 Networking</div>
+                                            <div class="ml-6">│&nbsp;&nbsp;├─ 🔒 VPN</div>
+                                            <div class="ml-6">│&nbsp;&nbsp;└─ ⚖️ Load Balancers</div>
+                                            <div class="ml-3">├─ 📁 Storage</div>
+                                            <div class="ml-3">├─ 📁 Monitoring</div>
+                                            <div class="ml-3">└─ 📁 Troubleshooting</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Structure proposée -->
+                                    <div>
+                                        <div class="bg-green-100 px-3 py-2 rounded-t border-2 border-green-300 border-b-0">
+                                            <p class="font-semibold text-green-800 text-sm">✅ Structure proposée</p>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-b border-2 border-green-300 border-t-0 text-xs" style="font-family: monospace; line-height: 1.8;">
+                                            <div>📁 Infrastructure</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Overview</div>
+                                            <div class="ml-3">├─ 📁 Architecture</div>
+                                            <div class="ml-6">│&nbsp;&nbsp;├─ ☁️ Cloud</div>
+                                            <div class="ml-9 text-green-600">│&nbsp;&nbsp;│&nbsp;&nbsp;└─ 📄 AWS Guide <span class="text-xs">⬆️ DÉPLACER</span></div>
+                                            <div class="ml-6">│&nbsp;&nbsp;└─ 🏢 On-premise</div>
+                                            <div class="ml-3">├─ 📁 Networking</div>
+                                            <div class="ml-6">│&nbsp;&nbsp;├─ 🔒 VPN</div>
+                                            <div class="ml-9 text-green-600">│&nbsp;&nbsp;│&nbsp;&nbsp;└─ 📄 VPN Setup <span class="text-xs">⬆️ DÉPLACER</span></div>
+                                            <div class="ml-6">│&nbsp;&nbsp;└─ ⚖️ Load Balancers</div>
+                                            <div class="ml-3">├─ 📁 Storage</div>
+                                            <div class="ml-3">├─ 📁 Monitoring</div>
+                                            <div class="ml-6 text-gray-600">└─ 📄 Monitoring Config</div>
+                                            <div class="ml-3 text-green-600">└─ 📁 Troubleshooting <span class="text-xs">➕ CRÉER</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Plan de restructuration -->
+                                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                                    <p class="font-semibold text-gray-900 mb-3">📋 Plan de restructuration détaillé:</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex items-start gap-2">
+                                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold">1</span>
+                                            <span><strong>CRÉER</strong> sous-section "Cloud" sous "Architecture"</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold">2</span>
+                                            <span><strong>DÉPLACER</strong> "AWS Guide" depuis racine → "Architecture → Cloud"</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold">3</span>
+                                            <span><strong>CRÉER</strong> sous-section "VPN" sous "Networking"</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold">4</span>
+                                            <span><strong>DÉPLACER</strong> "VPN Setup" depuis "Overview" → "Networking → VPN"</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold">5</span>
+                                            <span><strong>CRÉER</strong> sous-section "Monitoring" sous racine</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold">6</span>
+                                            <span><strong>DÉPLACER</strong> "Monitoring Config" → "Monitoring"</span>
+                                        </div>
+                                        <div class="flex items-start gap-2">
+                                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-bold">7</span>
+                                            <span><strong>CRÉER</strong> section "Troubleshooting" (nouvelle, vide pour le moment)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="flex gap-2">
+                                    <button class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center gap-2">
+                                        👁️ Plan de restructuration avec preview
+                                    </button>
+                                    <button class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2">
+                                        ✅ Appliquer sur le wiki
+                                    </button>
+                                    <button class="px-5 py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium">
+                                        ✏️ Modifier
+                                    </button>
+                                    <button class="px-5 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium">
+                                        ❌ Rejeter
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Section API Documentation -->
+                            <div class="bg-white border-2 border-purple-200 rounded-lg p-6">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 class="font-semibold text-xl text-gray-900">Section: API Documentation</h3>
+                                        <p class="text-sm text-gray-600 mt-1">18 pages • Dernière modif: 20/01/2026</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-3xl font-bold text-yellow-600 mb-1">74%</div>
+                                        <p class="text-sm text-gray-600">Score conformité</p>
+                                        <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium mt-2 inline-block">ℹ️ Améliorable</span>
+                                    </div>
+                                </div>
+
+                                <!-- Écarts détectés -->
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                    <p class="font-semibold text-gray-900 mb-3">⚠️ Écarts détectés:</p>
+                                    <ul class="space-y-2 text-sm">
+                                        <li class="flex items-start gap-2">
+                                            <span class="text-red-600 font-bold">❌</span>
+                                            <span><strong>Section manquante:</strong> "Changelog" (obligatoire dans blueprint API)</span>
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <span class="text-orange-600 font-bold">⚠️</span>
+                                            <span><strong>Ordre incorrect:</strong> "Examples" devrait venir avant "Error Codes"</span>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <!-- Structure simplifiée -->
+                                <div class="grid grid-cols-3 gap-4 mb-4">
+                                    <div>
+                                        <div class="bg-red-100 px-3 py-2 rounded-t border-2 border-red-300 border-b-0">
+                                            <p class="font-semibold text-red-800 text-sm">❌ Actuelle</p>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-b border-2 border-red-300 border-t-0 text-xs" style="font-family: monospace; line-height: 1.8;">
+                                            <div>📁 API Documentation</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Introduction</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Authentication</div>
+                                            <div class="ml-3">├─ 📁 Endpoints</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Error Codes</div>
+                                            <div class="ml-3 text-red-600">├─ 📄 Examples <span class="text-red-600">⚠️</span></div>
+                                            <div class="ml-3 text-gray-600">└─ 📄 Rate Limiting</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <div class="bg-blue-100 px-3 py-2 rounded-t border-2 border-blue-300 border-b-0">
+                                            <p class="font-semibold text-blue-800 text-sm">📐 Blueprint</p>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-b border-2 border-blue-300 border-t-0 text-xs" style="font-family: monospace; line-height: 1.8;">
+                                            <div>📁 API Documentation</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Introduction</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Authentication</div>
+                                            <div class="ml-3">├─ 📁 Endpoints</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Examples</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Error Codes</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Rate Limiting</div>
+                                            <div class="ml-3 text-gray-600">└─ 📄 Changelog</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <div class="bg-green-100 px-3 py-2 rounded-t border-2 border-green-300 border-b-0">
+                                            <p class="font-semibold text-green-800 text-sm">✅ Proposée</p>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-b border-2 border-green-300 border-t-0 text-xs" style="font-family: monospace; line-height: 1.8;">
+                                            <div>📁 API Documentation</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Introduction</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Authentication</div>
+                                            <div class="ml-3">├─ 📁 Endpoints</div>
+                                            <div class="ml-3 text-green-600">├─ 📄 Examples <span class="text-xs">⬆️ RÉORDONNER</span></div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Error Codes</div>
+                                            <div class="ml-3 text-gray-600">├─ 📄 Rate Limiting</div>
+                                            <div class="ml-3 text-green-600">└─ 📄 Changelog <span class="text-xs">➕ CRÉER</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="flex gap-2">
+                                    <button class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center gap-2">
+                                        👁️ Plan de restructuration avec preview
+                                    </button>
+                                    <button class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2">
+                                        ✅ Appliquer sur le wiki
+                                    </button>
+                                    <button class="px-5 py-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium">
+                                        ✏️ Modifier
+                                    </button>
+                                    <button class="px-5 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium">
+                                        ❌ Rejeter
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Section Déploiement -->
+                            <div class="bg-white border-2 border-green-200 rounded-lg p-6">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 class="font-semibold text-xl text-gray-900">Section: Déploiement</h3>
+                                        <p class="text-sm text-gray-600 mt-1">15 pages • Dernière modif: 22/01/2026</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-3xl font-bold text-green-600 mb-1">92%</div>
+                                        <p class="text-sm text-gray-600">Score conformité</p>
+                                        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium mt-2 inline-block">✅ Conforme</span>
+                                    </div>
+                                </div>
+
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <p class="text-sm text-green-800">✅ Structure bien organisée et conforme au blueprint. Petites améliorations mineures possibles mais non critiques.</p>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
