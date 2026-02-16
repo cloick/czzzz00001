@@ -1,89 +1,85 @@
-Ah ! **Je vois le problème !** 🔍
-
-**Le souci :** `AVERAGEX` calcule `[Serveur_OS]` dans un contexte bizarre à cause de `ALL(obso_planifall)`.
+Ah oui ! **Le problème : il manque `ALL(obso_planifall)` pour ignorer TOUS les filtres !** 🔍
 
 ---
 
-## DEBUG : Vérifie ce qui est calculé
-
-**Créé cette mesure de test :**
-
-```dax
-TEST_Detail_Moyenne = 
-CONCATENATEX(
-    FILTER(
-        ALL(obso_planifall[Appops]),
-        obso_planifall[Appops] <> "Non pris"
-    ),
-    obso_planifall[Appops] & ": " & FORMAT([Serveur_OS], "0.0%"),
-    " | ",
-    [Serveur_OS],
-    DESC
-)
-```
-
-**Affiche-la dans une carte.**
-
-**→ Ça va te montrer la valeur de [Serveur_OS] pour chaque Appops telle que calculée par AVERAGEX.**
-
-**Dis-moi ce que tu vois !**
-
----
-
-## SOLUTION : Forcer le contexte par Appops
-
-**Essaye cette version :**
+## Version CORRIGÉE (figée sur tous les filtres)
 
 ```dax
 Moyenne_Serveur_OS_Toutes_AppOps = 
-AVERAGEX(
-    FILTER(
-        ALL(obso_planifall[Appops]),
-        obso_planifall[Appops] <> "Non pris"
+CALCULATE(
+    AVERAGEX(
+        FILTER(
+            VALUES(obso_planifall[Appops]),
+            obso_planifall[Appops] <> "Non pris"
+        ),
+        VAR CurrentAppops = obso_planifall[Appops]
+        RETURN
+            DIVIDE(
+                CALCULATE(
+                    DISTINCTCOUNT(obso_planifall[NOM_CS]),
+                    obso_planifall[Appops] = CurrentAppops,
+                    obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
+                    obso_planifall[type_composant] = "OS"
+                ),
+                CALCULATE(
+                    DISTINCTCOUNT(obso_planifall[NOM_CS]),
+                    obso_planifall[Appops] = CurrentAppops,
+                    obso_planifall[type_composant] = "OS"
+                ),
+                0
+            )
     ),
-    CALCULATE(
-        [Serveur_OS],
-        ALL(obso_planifall[Tribu])  // ← Garde le filtre Appops, enlève juste Tribu
-    )
+    ALL(obso_planifall)  // ← AJOUTER CECI pour ignorer TOUS les filtres !
 )
 ```
 
 ---
 
-## OU : Recalculer le ratio directement
+## Explication
 
-**Version la plus sûre : recalculer le ratio pour chaque Appops :**
+**La structure complète :**
 
 ```dax
-Moyenne_Serveur_OS_Toutes_AppOps = 
-AVERAGEX(
-    FILTER(
-        ALL(obso_planifall[Appops]),
-        obso_planifall[Appops] <> "Non pris"
-    ),
-    VAR CurrentAppops = obso_planifall[Appops]
-    RETURN
-        DIVIDE(
-            CALCULATE(
-                DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                obso_planifall[Appops] = CurrentAppops,
-                obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
-                obso_planifall[type_composant] = "OS"
-            ),
-            CALCULATE(
-                DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                obso_planifall[Appops] = CurrentAppops,
-                obso_planifall[type_composant] = "OS"
-            ),
-            0
-        )
+CALCULATE(
+    AVERAGEX(...),
+    ALL(obso_planifall)  // ← Ignore TOUS les filtres (Appops ET Tribu)
 )
 ```
 
-**Cette version recalcule explicitement le ratio pour CHAQUE Appops individuellement.**
+**Ce qui se passe :**
+1. `ALL(obso_planifall)` enlève TOUS les filtres externes
+2. `AVERAGEX` itère sur TOUTES les Appops (sauf "Non pris")
+3. Pour chaque Appops, recalcule le ratio complet
+4. Fait la moyenne de tous ces ratios
+
+**Résultat :** Valeur FIGÉE qui ne bouge jamais ! ✅
 
 ---
 
-**Teste d'abord TEST_Detail_Moyenne pour voir ce qui est calculé, puis essaye les 2 solutions !** 🎯
+## Comportement attendu
 
-Dis-moi ce que tu trouves ! 💪
+```
+┌─────────────────────────────────────────────────────────┐
+│  Aucun filtre                                           │
+└─────────────────────────────────────────────────────────┘
+Serveur_OS = 8%
+Moyenne_Serveur_OS_Toutes_AppOps = 7%  (fixe)
+
+┌─────────────────────────────────────────────────────────┐
+│  Filtre : AppOps_A                                      │
+└─────────────────────────────────────────────────────────┘
+Serveur_OS = 4%  ✅ (change)
+Moyenne_Serveur_OS_Toutes_AppOps = 7%  ✅ (fixe)
+
+┌─────────────────────────────────────────────────────────┐
+│  Filtre : AppOps_A > Tribu_1                            │
+└─────────────────────────────────────────────────────────┘
+Serveur_OS = 4%  ✅ (change)
+Moyenne_Serveur_OS_Toutes_AppOps = 7%  ✅ (DOIT RESTER 7%)
+```
+
+---
+
+**Teste cette version ! Maintenant la moyenne devrait rester à 7% peu importe les filtres !** 🎯
+
+Dis-moi si ça marche ! 💪
