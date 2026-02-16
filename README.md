@@ -1,14 +1,32 @@
-😅 **Ah non ! C'est l'inverse du problème !**
-
-Le souci : `ALL(obso_planifall)` à l'extérieur **écrase** les filtres `obso_planifall[Appops] = CurrentAppops` à l'intérieur !
+😤 **OK, on arrête de deviner ! Il faut DÉBOGUER pour comprendre ce qui se passe !**
 
 ---
 
-## SOLUTION : ALL() à l'INTÉRIEUR, pas à l'extérieur
+## MESURES DE DEBUG
+
+**Créé ces 3 mesures pour voir ce qui est calculé :**
+
+### 1. Combien d'Appops sont comptées ?
 
 ```dax
-Moyenne_Serveur_OS_Toutes_AppOps = 
-AVERAGEX(
+DEBUG_NbAppops = 
+COUNTROWS(
+    FILTER(
+        ALL(obso_planifall[Appops]),
+        obso_planifall[Appops] <> "Non pris"
+    )
+)
+```
+
+**→ Devrait donner 10 si tu as 10 Appops (sauf "Non pris")**
+
+---
+
+### 2. Quelle est la SOMME des ratios ?
+
+```dax
+DEBUG_SommeRatios = 
+SUMX(
     FILTER(
         ALL(obso_planifall[Appops]),
         obso_planifall[Appops] <> "Non pris"
@@ -18,15 +36,15 @@ AVERAGEX(
         DIVIDE(
             CALCULATE(
                 DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                ALL(obso_planifall),  // ← Ignore TOUS les filtres externes
-                obso_planifall[Appops] = CurrentAppops,  // ← Puis filtre sur cette Appops
+                ALL(obso_planifall),
+                obso_planifall[Appops] = CurrentAppops,
                 obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
                 obso_planifall[type_composant] = "OS"
             ),
             CALCULATE(
                 DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                ALL(obso_planifall),  // ← Ignore TOUS les filtres externes
-                obso_planifall[Appops] = CurrentAppops,  // ← Puis filtre sur cette Appops
+                ALL(obso_planifall),
+                obso_planifall[Appops] = CurrentAppops,
                 obso_planifall[type_composant] = "OS"
             ),
             0
@@ -34,37 +52,57 @@ AVERAGEX(
 )
 ```
 
+**→ Si 10 Appops, devrait donner environ 0.65 (65%) pour obtenir moyenne de 6.5%**
+
 ---
 
-## Explication de l'ordre des filtres
-
-**Dans CALCULATE, l'ordre compte !**
+### 3. Détail par Appops (la plus importante !)
 
 ```dax
-CALCULATE(
-    DISTINCTCOUNT(...),
-    ALL(obso_planifall),           // 1. Enlève TOUS les filtres
-    obso_planifall[Appops] = CurrentAppops,  // 2. Puis applique CE filtre
-    ...autres filtres...
+DEBUG_DetailAppops = 
+CONCATENATEX(
+    FILTER(
+        ALL(obso_planifall[Appops]),
+        obso_planifall[Appops] <> "Non pris"
+    ),
+    VAR CurrentAppops = obso_planifall[Appops]
+    VAR Ratio = 
+        DIVIDE(
+            CALCULATE(
+                DISTINCTCOUNT(obso_planifall[NOM_CS]),
+                ALL(obso_planifall),
+                obso_planifall[Appops] = CurrentAppops,
+                obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
+                obso_planifall[type_composant] = "OS"
+            ),
+            CALCULATE(
+                DISTINCTCOUNT(obso_planifall[NOM_CS]),
+                ALL(obso_planifall),
+                obso_planifall[Appops] = CurrentAppops,
+                obso_planifall[type_composant] = "OS"
+            ),
+            0
+        )
+    RETURN
+        CurrentAppops & ": " & FORMAT(Ratio, "0.0%"),
+    UNICHAR(10),  // Retour à la ligne
+    Ratio,
+    DESC
 )
 ```
 
-**Résultat :**
-- Ignore les filtres externes (Tribu, Appops du slicer)
-- Calcule uniquement pour `CurrentAppops`
+**→ Ça va lister TOUTES les Appops avec leur ratio calculé**
 
 ---
 
-## Comportement attendu
+## TESTE CES 3 MESURES
 
-```
-Aucun filtre → Moyenne = 7%
-Filtre AppOps_A → Moyenne = 7% ✅ (fixe)
-Filtre Tribu_1 → Moyenne = 7% ✅ (fixe)
-```
+**Affiche-les dans des cartes et donne-moi les résultats :**
 
----
+1. **DEBUG_NbAppops** = ?
+2. **DEBUG_SommeRatios** = ?
+3. **DEBUG_DetailAppops** = ? (copie-colle toute la liste)
 
-**Teste cette version ! Normalement tu devrais retrouver 7% et ça doit rester fixe !** 🎯
+**Avec ces infos, on va comprendre exactement pourquoi ça donne 10 au lieu de 7 !** 🔍
 
-Dis-moi ce que ça donne ! 💪
+Vas-y, teste et envoie-moi les résultats ! 💪
