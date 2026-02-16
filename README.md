@@ -1,85 +1,70 @@
-Ah oui ! **Le problème : il manque `ALL(obso_planifall)` pour ignorer TOUS les filtres !** 🔍
+😅 **Ah non ! C'est l'inverse du problème !**
+
+Le souci : `ALL(obso_planifall)` à l'extérieur **écrase** les filtres `obso_planifall[Appops] = CurrentAppops` à l'intérieur !
 
 ---
 
-## Version CORRIGÉE (figée sur tous les filtres)
+## SOLUTION : ALL() à l'INTÉRIEUR, pas à l'extérieur
 
 ```dax
 Moyenne_Serveur_OS_Toutes_AppOps = 
-CALCULATE(
-    AVERAGEX(
-        FILTER(
-            VALUES(obso_planifall[Appops]),
-            obso_planifall[Appops] <> "Non pris"
-        ),
-        VAR CurrentAppops = obso_planifall[Appops]
-        RETURN
-            DIVIDE(
-                CALCULATE(
-                    DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                    obso_planifall[Appops] = CurrentAppops,
-                    obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
-                    obso_planifall[type_composant] = "OS"
-                ),
-                CALCULATE(
-                    DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                    obso_planifall[Appops] = CurrentAppops,
-                    obso_planifall[type_composant] = "OS"
-                ),
-                0
-            )
+AVERAGEX(
+    FILTER(
+        ALL(obso_planifall[Appops]),
+        obso_planifall[Appops] <> "Non pris"
     ),
-    ALL(obso_planifall)  // ← AJOUTER CECI pour ignorer TOUS les filtres !
+    VAR CurrentAppops = obso_planifall[Appops]
+    RETURN
+        DIVIDE(
+            CALCULATE(
+                DISTINCTCOUNT(obso_planifall[NOM_CS]),
+                ALL(obso_planifall),  // ← Ignore TOUS les filtres externes
+                obso_planifall[Appops] = CurrentAppops,  // ← Puis filtre sur cette Appops
+                obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
+                obso_planifall[type_composant] = "OS"
+            ),
+            CALCULATE(
+                DISTINCTCOUNT(obso_planifall[NOM_CS]),
+                ALL(obso_planifall),  // ← Ignore TOUS les filtres externes
+                obso_planifall[Appops] = CurrentAppops,  // ← Puis filtre sur cette Appops
+                obso_planifall[type_composant] = "OS"
+            ),
+            0
+        )
 )
 ```
 
 ---
 
-## Explication
+## Explication de l'ordre des filtres
 
-**La structure complète :**
+**Dans CALCULATE, l'ordre compte !**
 
 ```dax
 CALCULATE(
-    AVERAGEX(...),
-    ALL(obso_planifall)  // ← Ignore TOUS les filtres (Appops ET Tribu)
+    DISTINCTCOUNT(...),
+    ALL(obso_planifall),           // 1. Enlève TOUS les filtres
+    obso_planifall[Appops] = CurrentAppops,  // 2. Puis applique CE filtre
+    ...autres filtres...
 )
 ```
 
-**Ce qui se passe :**
-1. `ALL(obso_planifall)` enlève TOUS les filtres externes
-2. `AVERAGEX` itère sur TOUTES les Appops (sauf "Non pris")
-3. Pour chaque Appops, recalcule le ratio complet
-4. Fait la moyenne de tous ces ratios
-
-**Résultat :** Valeur FIGÉE qui ne bouge jamais ! ✅
+**Résultat :**
+- Ignore les filtres externes (Tribu, Appops du slicer)
+- Calcule uniquement pour `CurrentAppops`
 
 ---
 
 ## Comportement attendu
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Aucun filtre                                           │
-└─────────────────────────────────────────────────────────┘
-Serveur_OS = 8%
-Moyenne_Serveur_OS_Toutes_AppOps = 7%  (fixe)
-
-┌─────────────────────────────────────────────────────────┐
-│  Filtre : AppOps_A                                      │
-└─────────────────────────────────────────────────────────┘
-Serveur_OS = 4%  ✅ (change)
-Moyenne_Serveur_OS_Toutes_AppOps = 7%  ✅ (fixe)
-
-┌─────────────────────────────────────────────────────────┐
-│  Filtre : AppOps_A > Tribu_1                            │
-└─────────────────────────────────────────────────────────┘
-Serveur_OS = 4%  ✅ (change)
-Moyenne_Serveur_OS_Toutes_AppOps = 7%  ✅ (DOIT RESTER 7%)
+Aucun filtre → Moyenne = 7%
+Filtre AppOps_A → Moyenne = 7% ✅ (fixe)
+Filtre Tribu_1 → Moyenne = 7% ✅ (fixe)
 ```
 
 ---
 
-**Teste cette version ! Maintenant la moyenne devrait rester à 7% peu importe les filtres !** 🎯
+**Teste cette version ! Normalement tu devrais retrouver 7% et ça doit rester fixe !** 🎯
 
-Dis-moi si ça marche ! 💪
+Dis-moi ce que ça donne ! 💪
