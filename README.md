@@ -1,32 +1,23 @@
-😤 **OK, on arrête de deviner ! Il faut DÉBOGUER pour comprendre ce qui se passe !**
+**Parfait ! On intègre le filtre directement dans la mesure !** 👍
 
 ---
 
-## MESURES DE DEBUG
+## Question d'abord : Quelle(s) valeur(s) de statut ?
 
-**Créé ces 3 mesures pour voir ce qui est calculé :**
+**Sur quelle(s) valeur(s) de `obso_planifall[statut]` veux-tu filtrer ?**
 
-### 1. Combien d'Appops sont comptées ?
-
-```dax
-DEBUG_NbAppops = 
-COUNTROWS(
-    FILTER(
-        ALL(obso_planifall[Appops]),
-        obso_planifall[Appops] <> "Non pris"
-    )
-)
-```
-
-**→ Devrait donner 10 si tu as 10 Appops (sauf "Non pris")**
+a) **"en maintenant"** uniquement  
+b) **"en avenir"** uniquement  
+c) **Les deux** : "en maintenant" ET "en avenir"  
+d) **Autre chose** ?
 
 ---
 
-### 2. Quelle est la SOMME des ratios ?
+## Version avec "en maintenant" (exemple)
 
 ```dax
-DEBUG_SommeRatios = 
-SUMX(
+Moyenne_Serveur_OS_Toutes_AppOps = 
+AVERAGEX(
     FILTER(
         ALL(obso_planifall[Appops]),
         obso_planifall[Appops] <> "Non pris"
@@ -36,15 +27,15 @@ SUMX(
         DIVIDE(
             CALCULATE(
                 DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                ALL(obso_planifall),
                 obso_planifall[Appops] = CurrentAppops,
+                obso_planifall[statut] = "en maintenant",  // ← FILTRE ICI
                 obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
                 obso_planifall[type_composant] = "OS"
             ),
             CALCULATE(
                 DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                ALL(obso_planifall),
                 obso_planifall[Appops] = CurrentAppops,
+                obso_planifall[statut] = "en maintenant",  // ← FILTRE ICI AUSSI
                 obso_planifall[type_composant] = "OS"
             ),
             0
@@ -52,57 +43,38 @@ SUMX(
 )
 ```
 
-**→ Si 10 Appops, devrait donner environ 0.65 (65%) pour obtenir moyenne de 6.5%**
-
 ---
 
-### 3. Détail par Appops (la plus importante !)
+## Version avec "en maintenant" OU "en avenir"
 
 ```dax
-DEBUG_DetailAppops = 
-CONCATENATEX(
+Moyenne_Serveur_OS_Toutes_AppOps = 
+AVERAGEX(
     FILTER(
         ALL(obso_planifall[Appops]),
         obso_planifall[Appops] <> "Non pris"
     ),
     VAR CurrentAppops = obso_planifall[Appops]
-    VAR Ratio = 
+    RETURN
         DIVIDE(
             CALCULATE(
                 DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                ALL(obso_planifall),
                 obso_planifall[Appops] = CurrentAppops,
+                obso_planifall[statut] IN {"en maintenant", "en avenir"},  // ← FILTRE ICI
                 obso_planifall[statut_obso] IN {"Obsolète majeur", "Obsolète"},
                 obso_planifall[type_composant] = "OS"
             ),
             CALCULATE(
                 DISTINCTCOUNT(obso_planifall[NOM_CS]),
-                ALL(obso_planifall),
                 obso_planifall[Appops] = CurrentAppops,
+                obso_planifall[statut] IN {"en maintenant", "en avenir"},  // ← FILTRE ICI
                 obso_planifall[type_composant] = "OS"
             ),
             0
         )
-    RETURN
-        CurrentAppops & ": " & FORMAT(Ratio, "0.0%"),
-    UNICHAR(10),  // Retour à la ligne
-    Ratio,
-    DESC
 )
 ```
 
-**→ Ça va lister TOUTES les Appops avec leur ratio calculé**
-
 ---
 
-## TESTE CES 3 MESURES
-
-**Affiche-les dans des cartes et donne-moi les résultats :**
-
-1. **DEBUG_NbAppops** = ?
-2. **DEBUG_SommeRatios** = ?
-3. **DEBUG_DetailAppops** = ? (copie-colle toute la liste)
-
-**Avec ces infos, on va comprendre exactement pourquoi ça donne 10 au lieu de 7 !** 🔍
-
-Vas-y, teste et envoie-moi les résultats ! 💪
+**Dis-moi quelle(s) valeur(s) de statut tu veux, et je te donne la mesure finale !** 🎯
